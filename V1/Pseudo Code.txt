@@ -1,0 +1,19 @@
+TEST FOR POSITIONING SYSTEM
+
+get time
+	2018-04-30 T  1  6  :  0  0  :  1  3  Z 
+	0123456789 10 11 12 13 14 15 16 17 18 19
+get date
+get location
+calculate sun position
+get current position
+if roll is not azmuth
+	-if roll is less than azmuth
+		rotate until roll is equal to azmuth
+	-if roll is more than azmuth
+		rotate until roll is equal to azmuth
+calculate angle:(tan^-1(y/x))
+	-if angle is less than elevation
+		rotate until angle is equal to elevation
+	-if angle is less than elevation
+		rotate until angle is equal to elevation

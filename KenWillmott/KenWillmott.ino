@@ -11,6 +11,20 @@
 // and issued under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License:
 // https://creativecommons.org/licenses/by-nc-nd/4.0/
 
+#include <Adafruit_GPS.h>
+
+// what's the name of the hardware serial port?
+#define GPSSerial Serial1
+
+// Connect to the GPS on the hardware port
+Adafruit_GPS GPS(&GPSSerial);
+
+// Set GPSECHO to 'false' to turn off echoing the GPS data to the Serial console
+// Set to 'true' if you want to debug and listen to the raw GPS sentences
+#define GPSECHO false
+
+uint32_t timer = millis();
+
 #include "SolarPosition.h"
 #include "buttons.h"
 #include <ESP32Servo.h>
@@ -52,15 +66,15 @@ SolarPosition_t savedPosition;
 int user_input;
 bool button_flag = false;
 
-// create a fixed UNIX time to test fixed time method
-int someS = 0;  //second
-int someM = 0;  //minute
-int someH = 16; //hour
-int someD = 3; //day
-int someMo = 11; //month
-int someY = 2020; //year
-tmElements_t someTime = {someS, someM, someH, 0, someD, someMo, CalendarYrToTm(someY) };
-time_t someEpochTime = makeTime(someTime);
+//// create a fixed UNIX time to test fixed time method
+//int someS = 0;  //second
+//int someM = 0;  //minute
+//int someH = 16; //hour
+//int someD = 3; //day
+//int someMo = 11; //month
+//int someY = 2020; //year
+//tmElements_t someTime = {someS, someM, someH, 0, someD, someMo, CalendarYrToTm(someY) };
+//time_t someEpochTime = makeTime(someTime);
 
 // program begins
 
@@ -82,28 +96,65 @@ void setup()
   // save a complete current position
   //savedPosition = Ulaanbaatar.getSolarPosition();
 
-  //fixed time method
-  Serial.print(F("TIME: "));
-  printTime(someEpochTime);
-  Serial.print(F("BYU:\t"));
-  printSolarPosition(BYU.getSolarPosition(someEpochTime), digits);
-//  Serial.print(F("Melbourne:\t"));
-//  printSolarPosition(Melbourne.getSolarPosition(someEpochTime), digits);
-//  Serial.print(F("Timbuktu:\t"));
-//  printSolarPosition(Timbuktu.getSolarPosition(someEpochTime), digits);
-//  Serial.print(F("Ulaanbaatar:\t"));
-//  printSolarPosition(Ulaanbaatar.getSolarPosition(someEpochTime), digits);
-  Serial.println();
+  //  //fixed time method
+  //  Serial.print(F("TIME: "));
+  //  printTime(someEpochTime);
+  //  Serial.print(F("BYU:\t"));
+  //  printSolarPosition(BYU.getSolarPosition(someEpochTime), digits);
+  //  //  Serial.print(F("Melbourne:\t"));
+  //  //  printSolarPosition(Melbourne.getSolarPosition(someEpochTime), digits);
+  //  //  Serial.print(F("Timbuktu:\t"));
+  //  //  printSolarPosition(Timbuktu.getSolarPosition(someEpochTime), digits);
+  //  //  Serial.print(F("Ulaanbaatar:\t"));
+  //  //  printSolarPosition(Ulaanbaatar.getSolarPosition(someEpochTime), digits);
+  //  Serial.println();
 
-   //blynk setup
+  //GPS SETUP
+  // 9600 NMEA is the default baud rate for Adafruit MTK GPS's- some use 4800
+  GPS.begin(9600);
+  // uncomment this line to turn on RMC (recommended minimum) and GGA (fix data) including altitude
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+  // uncomment this line to turn on only the "minimum recommended" data
+  //GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY);
+  // For parsing data, we don't suggest using anything but either RMC only or RMC+GGA since
+  // the parser doesn't care about other sentences at this time
+  // Set the update rate
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ); // 1 Hz update rate
+  // For the parsing code to work nicely and have time to sort thru the data, and
+  // print it out we don't suggest using anything higher than 1 Hz
+
+  // Request updates on antenna status, comment out to keep quiet
+  GPS.sendCommand(PGCMD_ANTENNA);
+
+  delay(1000);
+
+  // Ask for firmware version
+  GPSSerial.println(PMTK_Q_RELEASE);
+
+  //blynk setup
   Serial.println("Waiting for connections...");
   Blynk.setDeviceName("Breadboard Feather");
   Blynk.begin(auth);
+
 }
 
 void loop()
 {
- Blynk.run();
+  Blynk.run();
+  // read data from the GPS in the 'main loop'
+  char c = GPS.read();
+  // if you want to debug, this is a good time to do it!
+  if (GPSECHO)
+    if (c) Serial.print(c);
+  // if a sentence is received, we can check the checksum, parse it...
+  if (GPS.newNMEAreceived()) {
+    // a tricky thing here is if we print the NMEA sentence, or data
+    // we end up not listening and catching other sentences!
+    // so be very wary if using OUTPUT_ALLDATA and trying to print out data
+    Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
+    if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
+      return; // we can fail to parse a sentence in which case we should just wait for another
+  }
   user_input = buttons.check_buttons();
   delay(60);
   if (user_input) {
@@ -112,31 +163,71 @@ void loop()
       button_flag = true;
       switch (user_input) {
         case Button_1  :
-          ElevationServo.write(0);
-          delay(15);
-          AzmuthServo.write(0);
-          delay(15);
-          
+          {
+            ElevationServo.write(0);
+            delay(15);
+            AzmuthServo.write(0);
+            delay(15);
+          }
           break; //optional
         case Button_2  :
-          ElevationServo.write(180);
-          delay(15);
-          AzmuthServo.write(180);
-          delay(15);
+          {
+            ElevationServo.write(180);
+            delay(15);
+            AzmuthServo.write(180);
+            delay(15);
+          }
           break;
         case Button_3  :
-//          ElevationServo.write(BYU.getSolarPosition(someEpochTime).elevation);
-//          delay(15);
-//          AzmuthServo.write(BYU.getSolarPosition(someEpochTime).azimuth);
-//          delay(15);
-          ElevationServo.write(Timbuktu.getSolarPosition(someEpochTime).elevation);
-          delay(15);
-          AzmuthServo.write(Timbuktu.getSolarPosition(someEpochTime).azimuth);
-          delay(15);
+          {
+            //get info from gps
+            Serial.print("\nTime: ");
+            if (GPS.hour < 10) {
+              Serial.print('0');
+            }
+            Serial.print(GPS.hour, DEC); Serial.print(':');
+            if (GPS.minute < 10) {
+              Serial.print('0');
+            }
+            Serial.print(GPS.minute, DEC); Serial.print(':');
+            if (GPS.seconds < 10) {
+              Serial.print('0');
+            }
+            Serial.print(GPS.seconds, DEC); Serial.print('.');
+            if (GPS.milliseconds < 10) {
+              Serial.print("00");
+            } else if (GPS.milliseconds > 9 && GPS.milliseconds < 100) {
+              Serial.print("0");
+            }
+            Serial.println(GPS.milliseconds);
+            Serial.print("Date: ");
+            Serial.print(GPS.day, DEC); Serial.print('/');
+            Serial.print(GPS.month, DEC); Serial.print("/20");
+            Serial.println(GPS.year, DEC);
+            Serial.print("Fix: "); Serial.print((int)GPS.fix);
+            Serial.print(" quality: "); Serial.println((int)GPS.fixquality);
+            if (GPS.fix) {
+              Serial.print("Location: ");
+              Serial.print(GPS.latitudeDegrees, 4);
+              Serial.print(", ");
+              Serial.println(GPS.longitudeDegrees, 4);
+              Serial.print("Speed (knots): "); Serial.println(GPS.speed);
+              Serial.print("Angle: "); Serial.println(GPS.angle);
+              Serial.print("Altitude: "); Serial.println(GPS.altitude);
+              Serial.print("Satellites: "); Serial.println((int)GPS.satellites);
+            }
+            SolarPosition GPS_location(GPS.latitudeDegrees, GPS.longitudeDegrees); //calc sun position
+            tmElements_t someTime = {GPS.seconds, GPS.minute, GPS.hour, 0, GPS.day, GPS.month, CalendarYrToTm(GPS.year) };
+            time_t someEpochTime = makeTime(someTime);
+            printSolarPosition(GPS_location.getSolarPosition(someEpochTime), digits);//print sun position
+          }
           break;
         case Button_4  :
+          {}
           break;
         case Button_5  :
+          {}
+          break;
         default : //Optional
           printf("ERROR: INPUT NOT RECOGNIZED\n");
       }

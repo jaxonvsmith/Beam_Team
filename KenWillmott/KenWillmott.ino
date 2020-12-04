@@ -63,7 +63,15 @@ SolarPosition Timbuktu(16.775214, -3.007455); // Timbuktu, Mali, Africa
 // A solar position structure to demonstrate storing complete positions
 SolarPosition_t savedPosition;
 
-int user_input;
+int user_input = 0;
+double my_lon = 0.0;
+double my_lat = 0.0;
+int my_sec = 0;
+int my_min = 0;
+int my_hour = 0;
+int my_day = 0;
+int my_month = 0;
+int my_year = 2000;
 bool button_flag = false;
 
 //// create a fixed UNIX time to test fixed time method
@@ -83,10 +91,10 @@ void setup()
   Serial.begin(115200);
   Serial.println(F("\tSolar Position Demo"));
 
-  // set Time clock to Jan. 1, 2000
-  setTime((time_t)now());
-  Serial.print(F("Setting clock to "));
-  printTime((time_t)now());
+  //  // set Time clock to Jan. 1, 2000
+  //  setTime((time_t)now());
+  //  Serial.print(F("Setting clock to "));
+  //  printTime((time_t)now());
 
   // set the Time library time service as the time provider
   SolarPosition::setTimeProvider(now);
@@ -142,6 +150,7 @@ void loop()
 {
   Blynk.run();
   // read data from the GPS in the 'main loop'
+  // read data from the GPS in the 'main loop'
   char c = GPS.read();
   // if you want to debug, this is a good time to do it!
   if (GPSECHO)
@@ -154,6 +163,55 @@ void loop()
     Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
     if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
       return; // we can fail to parse a sentence in which case we should just wait for another
+  }
+
+  // approximately every 2 seconds or so, print out the current stats
+  if (millis() - timer > 2000) {
+    timer = millis(); // reset the timer
+    Serial.print("\nTime: ");
+    if (GPS.hour < 10) {
+      Serial.print('0');
+    }
+    Serial.print(GPS.hour, DEC); Serial.print(':');
+    my_hour = GPS.hour;
+    if (GPS.minute < 10) {
+      Serial.print('0');
+    }
+    Serial.print(GPS.minute, DEC); Serial.print(':');
+    my_min = GPS.minute;
+    if (GPS.seconds < 10) {
+      Serial.print('0');
+    }
+    Serial.print(GPS.seconds, DEC); Serial.print('.');
+    my_sec = GPS.seconds;
+    if (GPS.milliseconds < 10) {
+      Serial.print("00");
+    } else if (GPS.milliseconds > 9 && GPS.milliseconds < 100) {
+      Serial.print("0");
+    }
+    Serial.println(GPS.milliseconds);
+    Serial.print("Date: ");
+    Serial.print(GPS.day, DEC); Serial.print('/');
+    my_day = GPS.day;
+    Serial.print(GPS.month, DEC); Serial.print("/20");
+    my_month = GPS.month;
+    Serial.println(GPS.year, DEC);
+    my_year = 2000 + GPS.year;
+    Serial.print("MY YEAR: "); Serial.println(my_year);
+    Serial.print("Fix: "); Serial.print((int)GPS.fix);
+    Serial.print(" quality: "); Serial.println((int)GPS.fixquality);
+    if (GPS.fix) {
+      Serial.print("Location: ");
+      Serial.print(GPS.latitudeDegrees, 4);
+      my_lat = GPS.latitudeDegrees;
+      Serial.print(", ");
+      Serial.println(GPS.longitudeDegrees, 4);
+      my_lon = GPS.longitudeDegrees;
+      Serial.print("Speed (knots): "); Serial.println(GPS.speed);
+      Serial.print("Angle: "); Serial.println(GPS.angle);
+      Serial.print("Altitude: "); Serial.println(GPS.altitude);
+      Serial.print("Satellites: "); Serial.println((int)GPS.satellites);
+    }
   }
   user_input = buttons.check_buttons();
   delay(60);
@@ -180,50 +238,16 @@ void loop()
           break;
         case Button_3  :
           {
-            //get info from gps
-            Serial.print("\nTime: ");
-            if (GPS.hour < 10) {
-              Serial.print('0');
-            }
-            Serial.print(GPS.hour, DEC); Serial.print(':');
-            if (GPS.minute < 10) {
-              Serial.print('0');
-            }
-            Serial.print(GPS.minute, DEC); Serial.print(':');
-            if (GPS.seconds < 10) {
-              Serial.print('0');
-            }
-            Serial.print(GPS.seconds, DEC); Serial.print('.');
-            if (GPS.milliseconds < 10) {
-              Serial.print("00");
-            } else if (GPS.milliseconds > 9 && GPS.milliseconds < 100) {
-              Serial.print("0");
-            }
-            Serial.println(GPS.milliseconds);
-            Serial.print("Date: ");
-            Serial.print(GPS.day, DEC); Serial.print('/');
-            Serial.print(GPS.month, DEC); Serial.print("/20");
-            Serial.println(GPS.year, DEC);
-            Serial.print("Fix: "); Serial.print((int)GPS.fix);
-            Serial.print(" quality: "); Serial.println((int)GPS.fixquality);
-            if (GPS.fix) {
-              Serial.print("Location: ");
-              Serial.print(GPS.latitudeDegrees, 4);
-              Serial.print(", ");
-              Serial.println(GPS.longitudeDegrees, 4);
-              Serial.print("Speed (knots): "); Serial.println(GPS.speed);
-              Serial.print("Angle: "); Serial.println(GPS.angle);
-              Serial.print("Altitude: "); Serial.println(GPS.altitude);
-              Serial.print("Satellites: "); Serial.println((int)GPS.satellites);
-            }
-            SolarPosition GPS_location(GPS.latitudeDegrees, GPS.longitudeDegrees); //calc sun position
-            tmElements_t someTime = {GPS.seconds, GPS.minute, GPS.hour, 0, GPS.day, GPS.month, CalendarYrToTm(GPS.year) };
+            SolarPosition GPS_location(my_lat, my_lon); //calc sun position
+            tmElements_t someTime = {my_sec, my_min, my_hour, 0, my_day, my_month, CalendarYrToTm(my_year) };
             time_t someEpochTime = makeTime(someTime);
             printSolarPosition(GPS_location.getSolarPosition(someEpochTime), digits);//print sun position
           }
           break;
         case Button_4  :
-          {}
+          {
+
+          }
           break;
         case Button_5  :
           {}
@@ -233,6 +257,7 @@ void loop()
       }
     }
   }
+
   if (user_input == NO_INPUT && button_flag == true) {
     button_flag = false;
   }

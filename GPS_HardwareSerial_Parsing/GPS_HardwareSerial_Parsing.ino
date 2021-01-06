@@ -14,6 +14,31 @@
 // Pick one up today at the Adafruit electronics shop
 // and help support open source hardware & software! -ada
 
+// The SFE_LSM9DS1 library requires both Wire and SPI be
+// included BEFORE including the 9DS1 library.
+#include <Wire.h>
+#include <SPI.h>
+#include <SparkFunLSM9DS1.h>
+
+//////////////////////////
+// LSM9DS1 Library Init //
+//////////////////////////
+// Use the LSM9DS1 class to create an object. [imu] can be
+// named anything, we'll refer to that throught the sketch.
+LSM9DS1 imu;
+
+// Earth's magnetic field varies by location. Add or subtract
+// a declination to get a more accurate heading. Calculate
+// your's here:
+// http://www.ngdc.noaa.gov/geomag-web/#declination
+#define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
+
+//Function definitions
+void printGyro();
+void printAccel();
+void printMag();
+void printAttitude(float ax, float ay, float az, float mx, float my, float mz);
+
 #include <Adafruit_GPS.h>
 #include "SolarPosition.h"
 #include <ESP32Servo.h>
@@ -49,6 +74,7 @@ uint32_t timer = millis();
 double our_lon = 0;
 double our_lat = 0;
 bool button_flag = false;
+int limits = 0;
 // number of decimal digits to print
 const uint8_t digits = 3;
 
@@ -73,6 +99,18 @@ void setup()
 
   Serial.println("Adafruit GPS library basic test!");
 
+  Wire.begin();
+
+  if (imu.begin() == false) // with no arguments, this uses default addresses (AG:0x6B, M:0x1E) and i2c port (Wire).
+  {
+    Serial.println("Failed to communicate with LSM9DS1.");
+    Serial.println("Double-check wiring.");
+    Serial.println("Default settings in this sketch will " \
+                   "work for an out of the box LSM9DS1 " \
+                   "Breakout, but may need to be modified " \
+                   "if the board jumpers are.");
+    while (1);
+  }
   // 9600 NMEA is the default baud rate for Adafruit MTK GPS's- some use 4800
   GPS.begin(9600);
   // uncomment this line to turn on RMC (recommended minimum) and GGA (fix data) including altitude
@@ -114,6 +152,29 @@ void loop() // run over and over again
     if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
       return; // we can fail to parse a sentence in which case we should just wait for another
   }
+
+  if ( imu.gyroAvailable() )
+  {
+    // To read from the gyroscope,  first call the
+    // readGyro() function. When it exits, it'll update the
+    // gx, gy, and gz variables with the most current data.
+    imu.readGyro();
+  }
+  if ( imu.accelAvailable() )
+  {
+    // To read from the accelerometer, first call the
+    // readAccel() function. When it exits, it'll update the
+    // ax, ay, and az variables with the most current data.
+    imu.readAccel();
+  }
+  if ( imu.magAvailable() )
+  {
+    // To read from the magnetometer, first call the
+    // readMag() function. When it exits, it'll update the
+    // mx, my, and mz variables with the most current data.
+    imu.readMag();
+  }
+
 
   // approximately every 2 seconds or so, print out the current stats
   //if (millis() - timer > 2000) {
@@ -165,16 +226,34 @@ void loop() // run over and over again
     }
   }
   if ((digitalRead(pin_2)) && button_flag == false) {
-    ElevationServo.write(0);
-    delay(15);
-    AzmuthServo.write(0);
-    delay(15);
+    button_flag = true;
+    if (limits == 0) {
+      limits = 1;
+      ElevationServo.write(0);
+      delay(15);
+      AzmuthServo.write(0);
+      delay(15);
+    }
+    else if(limits == 1){
+      limits = 2;
+      ElevationServo.write(90);
+      delay(15);
+      AzmuthServo.write(90);
+      delay(15);
+    }
+    else{
+      limits = 0;
+      ElevationServo.write(180);
+      delay(15);
+      AzmuthServo.write(180);
+      delay(15);
+    }
   }
   if ((digitalRead(pin_3)) && button_flag == false) {
-    ElevationServo.write(180);
-    delay(15);
-    AzmuthServo.write(180);
-    delay(15);
+    button_flag = true;
+    printAttitude(imu.ax, imu.ay, imu.az,
+                  -imu.my, -imu.mx, imu.mz);
+    Serial.println();
   }
   if ((digitalRead(pin_1) || digitalRead(pin_2) || digitalRead(pin_3))) {
     return;
@@ -195,4 +274,32 @@ void printSolarPosition(SolarPosition_t pos, int numDigits)
   Serial.print(F("az: "));
   Serial.print(pos.azimuth, numDigits);
   Serial.println(F(" deg"));
+}
+
+void printAttitude(float ax, float ay, float az, float mx, float my, float mz)
+{
+  float roll = atan2(ay, az);
+  float pitch = atan2(-ax, sqrt(ay * ay + az * az));
+
+  float heading;
+  if (my == 0)
+    heading = (mx < 0) ? PI : 0;
+  else
+    heading = atan2(mx, my);
+
+  heading -= DECLINATION * PI / 180;
+
+  if (heading > PI) heading -= (2 * PI);
+  else if (heading < -PI) heading += (2 * PI);
+
+  // Convert everything from radians to degrees:
+  heading *= 180.0 / PI;
+  pitch *= 180.0 / PI;
+  roll  *= 180.0 / PI;
+
+  Serial.print("Pitch, Roll: ");
+  Serial.print(pitch, 2);
+  Serial.print(", ");
+  Serial.println(roll, 2);
+  Serial.print("Heading: "); Serial.println(heading, 2);
 }

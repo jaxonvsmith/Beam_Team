@@ -251,7 +251,59 @@ void loop() // run over and over again
   if ((digitalRead(pin_3)) && button_flag == false) {
     //button_flag = true;
     // Read the motion sensors
-  
+      float roll, pitch, heading;
+  float gx, gy, gz;
+  static uint8_t counter = 0;
+
+  if ((millis() - timestamp) < (1000 / FILTER_UPDATE_RATE_HZ)) {
+    return;
+  }
+  timestamp = millis();
+  // Read the motion sensors
+  sensors_event_t accel, gyro, mag;
+  accelerometer->getEvent(&accel);
+  gyroscope->getEvent(&gyro);
+  magnetometer->getEvent(&mag);
+#if defined(AHRS_DEBUG_OUTPUT)
+  Serial.print("I2C took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+#endif
+
+  cal.calibrate(mag);
+  cal.calibrate(accel);
+  cal.calibrate(gyro);
+  // Gyroscope needs to be converted from Rad/s to Degree/s
+  // the rest are not unit-important
+  gx = gyro.gyro.x * SENSORS_RADS_TO_DPS;
+  gy = gyro.gyro.y * SENSORS_RADS_TO_DPS;
+  gz = gyro.gyro.z * SENSORS_RADS_TO_DPS;
+
+  // Update the SensorFusion filter
+  filter.update(gx, gy, gz, 
+                accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, 
+                mag.magnetic.x, mag.magnetic.y, mag.magnetic.z);
+#if defined(AHRS_DEBUG_OUTPUT)
+  Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+#endif
+
+  // only print the calculated output once in a while
+  if (counter++ <= PRINT_EVERY_N_UPDATES) {
+    return;
+  }
+  // reset the counter
+  counter = 0;
+
+#if defined(AHRS_DEBUG_OUTPUT)
+  Serial.print("Raw: ");
+  Serial.print(accel.acceleration.x, 4); Serial.print(", ");
+  Serial.print(accel.acceleration.y, 4); Serial.print(", ");
+  Serial.print(accel.acceleration.z, 4); Serial.print(", ");
+  Serial.print(gx, 4); Serial.print(", ");
+  Serial.print(gy, 4); Serial.print(", ");
+  Serial.print(gz, 4); Serial.print(", ");
+  Serial.print(mag.magnetic.x, 4); Serial.print(", ");
+  Serial.print(mag.magnetic.y, 4); Serial.print(", ");
+  Serial.print(mag.magnetic.z, 4); Serial.println("");
+#endif
 
   // print the heading, pitch and roll
   roll = filter.getRoll();

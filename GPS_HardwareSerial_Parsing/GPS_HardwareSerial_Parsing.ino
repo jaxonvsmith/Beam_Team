@@ -14,29 +14,36 @@
 // Pick one up today at the Adafruit electronics shop
 // and help support open source hardware & software! -ada
 
-// The SFE_LSM9DS1 library requires both Wire and SPI be
-// included BEFORE including the 9DS1 library.
-#include <Wire.h>
-#include <SPI.h>
-#include <SparkFunLSM9DS1.h>
+//LSM9DS1 INFO
+#include <Adafruit_Sensor_Calibration.h>
+#include <Adafruit_AHRS.h>
 
-//////////////////////////
-// LSM9DS1 Library Init //
-//////////////////////////
-// Use the LSM9DS1 class to create an object. [imu] can be
-// named anything, we'll refer to that throught the sketch.
-LSM9DS1 imu;
+Adafruit_Sensor *accelerometer, *gyroscope, *magnetometer;
 
-// Earth's magnetic field varies by location. Add or subtract
-// a declination to get a more accurate heading. Calculate
-// your's here:
-// http://www.ngdc.noaa.gov/geomag-web/#declination
-#define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
+
+// uncomment one combo 9-DoF!
+//#include "LSM6DS_LIS3MDL.h"  // can adjust to LSM6DS33, LSM6DS3U, LSM6DSOX...
+#include "LSM9DS.h"           // LSM9DS1 or LSM9DS0
+//#include "NXP_FXOS_FXAS.h"  // NXP 9-DoF breakout
+
+// pick your filter! slower == better quality output
+//Adafruit_NXPSensorFusion filter; // slowest
+Adafruit_Madgwick filter;  // faster than NXP
+//Adafruit_Mahony filter;  // fastest/smalleset
+
+#if defined(ADAFRUIT_SENSOR_CALIBRATION_USE_EEPROM)
+Adafruit_Sensor_Calibration_EEPROM cal;
+#else
+Adafruit_Sensor_Calibration_SDFat cal;
+#endif
+
+#define FILTER_UPDATE_RATE_HZ 100
+#define PRINT_EVERY_N_UPDATES 10
+//#define AHRS_DEBUG_OUTPUT
+
+uint32_t timestamp;
 
 //Function definitions
-void printGyro();
-void printAccel();
-void printMag();
 void printAttitude(float ax, float ay, float az, float mx, float my, float mz);
 
 #include <Adafruit_GPS.h>
@@ -59,6 +66,7 @@ char auth[] = "8sa298umPY0BFSt7w_zIH-LXR9YXAZic";
 #define pin_1 13
 #define pin_2 27
 #define pin_3 15
+#define pin_4 33
 
 // what's the name of the hardware serial port?
 #define GPSSerial Serial1
@@ -85,6 +93,27 @@ void setup()
   // connect at 115200 so we can read the GPS fast enough and echo without dropping chars
   // also spit it out
   Serial.begin(115200);
+  while (!Serial) yield();
+  //LSM9DS1 Setup
+  if (!cal.begin()) {
+    Serial.println("Failed to initialize calibration helper");
+  } else if (! cal.loadCalibration()) {
+    Serial.println("No calibration loaded/found");
+  }
+  if (!init_sensors()) {
+    Serial.println("Failed to find sensors");
+    while (1) delay(10);
+  }
+
+  accelerometer->printSensorDetails();
+  gyroscope->printSensorDetails();
+  magnetometer->printSensorDetails();
+
+  setup_sensors();
+  filter.begin(FILTER_UPDATE_RATE_HZ);
+  timestamp = millis();
+
+  Wire.setClock(400000); // 400KHz
   //blynk setup
   Serial.println("Waiting for connections...");
   Blynk.setDeviceName("Breadboard Feather");
@@ -93,6 +122,7 @@ void setup()
   pinMode(pin_1, INPUT);
   pinMode(pin_2, INPUT);
   pinMode(pin_3, INPUT);
+  pinMode(pin_4, INPUT);
 
   ElevationServo.attach(ElevationServo_Pin);
   AzmuthServo.attach(AzmuthServo_Pin);
@@ -101,16 +131,6 @@ void setup()
 
   Wire.begin();
 
-  if (imu.begin() == false) // with no arguments, this uses default addresses (AG:0x6B, M:0x1E) and i2c port (Wire).
-  {
-    Serial.println("Failed to communicate with LSM9DS1.");
-    Serial.println("Double-check wiring.");
-    Serial.println("Default settings in this sketch will " \
-                   "work for an out of the box LSM9DS1 " \
-                   "Breakout, but may need to be modified " \
-                   "if the board jumpers are.");
-    while (1);
-  }
   // 9600 NMEA is the default baud rate for Adafruit MTK GPS's- some use 4800
   GPS.begin(9600);
   // uncomment this line to turn on RMC (recommended minimum) and GGA (fix data) including altitude
@@ -148,31 +168,10 @@ void loop() // run over and over again
     // a tricky thing here is if we print the NMEA sentence, or data
     // we end up not listening and catching other sentences!
     // so be very wary if using OUTPUT_ALLDATA and trying to print out data
-    Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
+    GPS.lastNMEA(); //ADDED THIS SO IT DIDNT PRINT EVERY SECOND. REMOVE AND UNCOMMENT LINE BELOW TO SWITCH BACK
+    //Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
     if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
       return; // we can fail to parse a sentence in which case we should just wait for another
-  }
-
-  if ( imu.gyroAvailable() )
-  {
-    // To read from the gyroscope,  first call the
-    // readGyro() function. When it exits, it'll update the
-    // gx, gy, and gz variables with the most current data.
-    imu.readGyro();
-  }
-  if ( imu.accelAvailable() )
-  {
-    // To read from the accelerometer, first call the
-    // readAccel() function. When it exits, it'll update the
-    // ax, ay, and az variables with the most current data.
-    imu.readAccel();
-  }
-  if ( imu.magAvailable() )
-  {
-    // To read from the magnetometer, first call the
-    // readMag() function. When it exits, it'll update the
-    // mx, my, and mz variables with the most current data.
-    imu.readMag();
   }
 
 
@@ -234,14 +233,14 @@ void loop() // run over and over again
       AzmuthServo.write(0);
       delay(15);
     }
-    else if(limits == 1){
+    else if (limits == 1) {
       limits = 2;
       ElevationServo.write(90);
       delay(15);
       AzmuthServo.write(90);
       delay(15);
     }
-    else{
+    else {
       limits = 0;
       ElevationServo.write(180);
       delay(15);
@@ -250,10 +249,38 @@ void loop() // run over and over again
     }
   }
   if ((digitalRead(pin_3)) && button_flag == false) {
+    //button_flag = true;
+    // Read the motion sensors
+  
+
+  // print the heading, pitch and roll
+  roll = filter.getRoll();
+  pitch = filter.getPitch();
+  heading = filter.getYaw();
+  Serial.print("Orientation: ");
+  Serial.print(heading);
+  Serial.print(", ");
+  Serial.print(pitch);
+  Serial.print(", ");
+  Serial.println(roll);
+
+  float qw, qx, qy, qz;
+  filter.getQuaternion(&qw, &qx, &qy, &qz);
+  Serial.print("Quaternion: ");
+  Serial.print(qw, 4);
+  Serial.print(", ");
+  Serial.print(qx, 4);
+  Serial.print(", ");
+  Serial.print(qy, 4);
+  Serial.print(", ");
+  Serial.println(qz, 4);  
+  
+#if defined(AHRS_DEBUG_OUTPUT)
+  Serial.print("Took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+#endif
+  }
+  if ((digitalRead(pin_4)) && button_flag == false) {
     button_flag = true;
-    printAttitude(imu.ax, imu.ay, imu.az,
-                  -imu.my, -imu.mx, imu.mz);
-    Serial.println();
   }
   if ((digitalRead(pin_1) || digitalRead(pin_2) || digitalRead(pin_3))) {
     return;
@@ -274,32 +301,4 @@ void printSolarPosition(SolarPosition_t pos, int numDigits)
   Serial.print(F("az: "));
   Serial.print(pos.azimuth, numDigits);
   Serial.println(F(" deg"));
-}
-
-void printAttitude(float ax, float ay, float az, float mx, float my, float mz)
-{
-  float roll = atan2(ay, az);
-  float pitch = atan2(-ax, sqrt(ay * ay + az * az));
-
-  float heading;
-  if (my == 0)
-    heading = (mx < 0) ? PI : 0;
-  else
-    heading = atan2(mx, my);
-
-  heading -= DECLINATION * PI / 180;
-
-  if (heading > PI) heading -= (2 * PI);
-  else if (heading < -PI) heading += (2 * PI);
-
-  // Convert everything from radians to degrees:
-  heading *= 180.0 / PI;
-  pitch *= 180.0 / PI;
-  roll  *= 180.0 / PI;
-
-  Serial.print("Pitch, Roll: ");
-  Serial.print(pitch, 2);
-  Serial.print(", ");
-  Serial.println(roll, 2);
-  Serial.print("Heading: "); Serial.println(heading, 2);
 }

@@ -173,7 +173,7 @@ void loop() // run over and over again
     if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
       return; // we can fail to parse a sentence in which case we should just wait for another
   }
-
+  
 
   // approximately every 2 seconds or so, print out the current stats
   //if (millis() - timer > 2000) {
@@ -250,8 +250,7 @@ void loop() // run over and over again
   }
   if ((digitalRead(pin_3)) && button_flag == false) {
     //button_flag = true;
-    // Read the motion sensors
-      float roll, pitch, heading;
+  float roll, pitch, heading;
   float gx, gy, gz;
   static uint8_t counter = 0;
 
@@ -265,7 +264,7 @@ void loop() // run over and over again
   gyroscope->getEvent(&gyro);
   magnetometer->getEvent(&mag);
 #if defined(AHRS_DEBUG_OUTPUT)
-  Serial.print("I2C took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+  Serial.print("I2C took "); Serial.print(millis() - timestamp); Serial.println(" ms");
 #endif
 
   cal.calibrate(mag);
@@ -278,11 +277,11 @@ void loop() // run over and over again
   gz = gyro.gyro.z * SENSORS_RADS_TO_DPS;
 
   // Update the SensorFusion filter
-  filter.update(gx, gy, gz, 
-                accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, 
+  filter.update(gx, gy, gz,
+                accel.acceleration.x, accel.acceleration.y, accel.acceleration.z,
                 mag.magnetic.x, mag.magnetic.y, mag.magnetic.z);
 #if defined(AHRS_DEBUG_OUTPUT)
-  Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+  Serial.print("Update took "); Serial.print(millis() - timestamp); Serial.println(" ms");
 #endif
 
   // only print the calculated output once in a while
@@ -304,31 +303,31 @@ void loop() // run over and over again
   Serial.print(mag.magnetic.y, 4); Serial.print(", ");
   Serial.print(mag.magnetic.z, 4); Serial.println("");
 #endif
+    // Read the motion sensors
+    roll = filter.getRoll();
+    pitch = filter.getPitch();
+    heading = filter.getYaw();
+    // print the heading, pitch and roll
+    Serial.print("Orientation: ");
+    Serial.print(heading);
+    Serial.print(", ");
+    Serial.print(pitch);
+    Serial.print(", ");
+    Serial.println(roll);
 
-  // print the heading, pitch and roll
-  roll = filter.getRoll();
-  pitch = filter.getPitch();
-  heading = filter.getYaw();
-  Serial.print("Orientation: ");
-  Serial.print(heading);
-  Serial.print(", ");
-  Serial.print(pitch);
-  Serial.print(", ");
-  Serial.println(roll);
+    float qw, qx, qy, qz;
+    filter.getQuaternion(&qw, &qx, &qy, &qz);
+    Serial.print("Quaternion: ");
+    Serial.print(qw, 4);
+    Serial.print(", ");
+    Serial.print(qx, 4);
+    Serial.print(", ");
+    Serial.print(qy, 4);
+    Serial.print(", ");
+    Serial.println(qz, 4);
 
-  float qw, qx, qy, qz;
-  filter.getQuaternion(&qw, &qx, &qy, &qz);
-  Serial.print("Quaternion: ");
-  Serial.print(qw, 4);
-  Serial.print(", ");
-  Serial.print(qx, 4);
-  Serial.print(", ");
-  Serial.print(qy, 4);
-  Serial.print(", ");
-  Serial.println(qz, 4);  
-  
 #if defined(AHRS_DEBUG_OUTPUT)
-  Serial.print("Took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+    Serial.print("Took "); Serial.print(millis() - timestamp); Serial.println(" ms");
 #endif
   }
   if ((digitalRead(pin_4)) && button_flag == false) {

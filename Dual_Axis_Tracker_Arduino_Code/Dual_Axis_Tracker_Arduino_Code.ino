@@ -36,11 +36,11 @@ void loop()
     button_flag = true;
     if (tracking_flag == false) {
       tracking_flag = true;
-      Serial.print("...Tracking the sun...");
+      Serial.print("...Tracking the sun...\n");
     }
     else {
       tracking_flag = false;
-      Serial.print("...Off...");
+      Serial.print("...Off...\n");
     }
   }
   else {

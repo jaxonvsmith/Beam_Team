@@ -32,7 +32,7 @@ void setup()
 }
 void loop()
 {
-  if (digitalRead(button_1) == HIGH) {
+  if (digitalRead(button_1) == HIGH && button_flag == false) {
     button_flag = true;
     if (tracking_flag == false) {
       tracking_flag = true;

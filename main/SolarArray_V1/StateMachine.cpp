@@ -31,21 +31,49 @@ void StateMachine::SM() {
     case DEPLOY:
       break;
     case DEPLOY_STATUS:
-      s_state = digitalRead(Deploy_Switch)
+      s_state = digitalRead(Deploy_Switch);
       Prev_Deploy_Switch = s_state;
-      if(s_state && !Deploy_flag){
+      if (s_state && !Deploy_flag) {
         current_state = DEPLOY;
       }
-      if else(!s_state && Deploy_flag){
-        current_state = RETRACT;
-      }
-      else{
+      if else(!s_state && Deploy_flag) {
+          current_state = RETRACT;
+        }
+      else {
         current_state = TRACKING_STATUS
       }
       break;
     case TRACKING_STATUS:
+      s_state = digitalRead(Track_Switch);
+      Prev_Track_Switch = s_state;
+      if (s_state) {
+        Track_flag = true;
+        current_state = CHECK_POS;
+      }
+      else if (!s_state && Track_flag) {
+        current_state = FLAT;
+      }
+      else{
+        current_state = WAIT;
+      }
       break;
     case FLAT:
+      while(!LimitSwitch_Center){
+        if(left_side){
+          //move motor right.....................................NOT IMPLIMENTED....................
+          if(LimitSwitch_Horizontal){
+            //You are moving the wrong way, move motor left......NOT IMPLIMENTED....................
+          }
+        }
+        else{
+          //move motor left......................................NOT IMPLIMENTED....................
+          if(LimitSwitch_Horizontal){
+            //You are moving the wrong way, move motor right......NOT IMPLIMENTED....................
+          }
+        }
+      }
+      Track_flag = false;
+      current_state = WAIT;
       break;
     case CHECK_POS:
       break;

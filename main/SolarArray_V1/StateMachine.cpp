@@ -4,31 +4,45 @@
 */
 
 #include "StateMachine.h"
+#include "motors.h"
 
+motors motors;
 
 StateMachine::StateMachine() {
   current_state = INIT;
-  timer = 0;
 }
 
 void StateMachine::SM() {
   switch (current_state) {
     case INIT:
-      //turn off Azmuth Motor
-      //turn off Horizon Motor
-      //turn off Deploy Motor
+      motors.Azmuth_Motor_Off();//turn off Azmuth Motor
+      motors.Horizon_Motor_Off();//turn off Horizon Motor
+      motors.Deploy_Motor_Off();//turn off Deploy Motor
       Deploy_flag = false;
       Track_flag = false;
       s_state = false;
-      timer = 0;
       left_side = false;
       Prev_Deploy_Switch = false;
       Prev_Track_Switch = false;
       current_state = DEPLOY_STATUS;
       break;
     case RETRACT:
+      motors.Deploy_Motor_In();
+      while (digitalRead(LimitSwitch_Retract) == LOW) {
+
+      }
+      motors.Deploy_Motor_Off();
+      Deploy_flag = false;
+      current_state = DEPLOY_STATUS;
       break;
     case DEPLOY:
+      motors.Deploy_Motor_Out();
+      while (digitalRead(LimitSwitch_Deploy) == LOW) {
+        //wait for system to deploy out
+      }
+      motors.Deploy_Motor_Off();
+      Deploy_flag = true;
+      current_state = DEPLOY_STATUS;
       break;
     case DEPLOY_STATUS:
       s_state = digitalRead(Deploy_Switch);
@@ -36,11 +50,11 @@ void StateMachine::SM() {
       if (s_state && !Deploy_flag) {
         current_state = DEPLOY;
       }
-      if else(!s_state && Deploy_flag) {
+      else if(!s_state && Deploy_flag) {
           current_state = RETRACT;
         }
       else {
-        current_state = TRACKING_STATUS
+        current_state = TRACKING_STATUS;
       }
       break;
     case TRACKING_STATUS:
@@ -53,33 +67,52 @@ void StateMachine::SM() {
       else if (!s_state && Track_flag) {
         current_state = FLAT;
       }
-      else{
+      else {
         current_state = WAIT;
       }
       break;
     case FLAT:
-      while(!LimitSwitch_Center){
-        if(left_side){
-          //move motor right.....................................NOT IMPLIMENTED....................
-          if(LimitSwitch_Horizontal){
-            //You are moving the wrong way, move motor left......NOT IMPLIMENTED....................
+      while (digitalRead(LimitSwitch_Center) == false) {
+        if (left_side) {
+          motors.Horizon_Motor_Right();//move motor right
+          if (digitalRead(LimitSwitch_Horizontal)) {
+            motors.Horizon_Motor_Left();//You are moving the wrong way, move motor left
           }
         }
-        else{
-          //move motor left......................................NOT IMPLIMENTED....................
-          if(LimitSwitch_Horizontal){
-            //You are moving the wrong way, move motor right......NOT IMPLIMENTED....................
+        else {
+          motors.Horizon_Motor_Left();//move motor left
+          if (digitalRead(LimitSwitch_Horizontal)) {
+            motors.Horizon_Motor_Right();//You are moving the wrong way, move motor right
           }
         }
       }
+      motors.Horizon_Motor_Off();
       Track_flag = false;
       current_state = WAIT;
       break;
     case CHECK_POS:
+      //      if(tracking.pos_correct()){...........................NOT IMPLIMENTED.......................
+      //        current_state = ADJ_POS;
+      //      }
+      //      else{
+      //        current_state = WAIT;
+      //      }
       break;
     case ADJ_POS:
+      //      tracking.adj_pos();...................................NOT IMPLIMENTED.......................
+      current_state = WAIT;
       break;
     case WAIT:
+      if (millis() >= time_now + TRACKING_DELAY) {
+        time_now += TRACKING_DELAY;
+        current_state = TRACKING_STATUS;
+      }
+      if (digitalRead(Track_Switch) != Prev_Track_Switch) {
+        current_state = TRACKING_STATUS;
+      }
+      if (digitalRead(Deploy_Switch) != Prev_Deploy_Switch) {
+        current_state = DEPLOY_STATUS;
+      }
       break;
     default:
       break;

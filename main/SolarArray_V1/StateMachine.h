@@ -19,7 +19,7 @@ class StateMachine
     bool s_state;
     uint8_t current_state;
     //...timer...//
-    uint32_t timer;
+    unsigned long time_now = 0;
     const uint32_t TRACKING_DELAY = 5000;
     //...flags...//
     bool Prev_Deploy_Switch;
@@ -30,6 +30,13 @@ class StateMachine
     //...switches...//
     const uint8_t Deploy_Switch = 27;
     const uint8_t Track_Switch = 29;
+    //...limitswitch's...
+    uint8_t LimitSwitch_Azmuth_Upper = 31;
+    uint8_t LimitSwitch_Azmuth_Lower = 45;
+    uint8_t LimitSwitch_Horizontal = 47;
+    uint8_t LimitSwitch_Center = 49;
+    uint8_t LimitSwitch_Deploy = 51;
+    uint8_t LimitSwitch_Retract = 53;
 };
 
 #endif

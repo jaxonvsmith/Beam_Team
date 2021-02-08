@@ -94,7 +94,7 @@ void loop()
           servoh = 180;
         }
       }
-      else if (avl = avr)
+      else if (avl == avr)
       {
         // nothing
       }

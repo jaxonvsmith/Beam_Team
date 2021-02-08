@@ -1,4 +1,5 @@
-#include <ESP32Servo.h>
+//#include <ESP32Servo.h>
+#include <Servo.h>
 
 Servo horizontal; // horizontal servo
 int servoh = 90;     // stand horizontal servo
@@ -11,8 +12,8 @@ void setup() {
   Serial.begin(9600);
 // servo connections
 // name.attacht(pin);
-  horizontal.attach(12); 
-  vertical.attach(27);
+  horizontal.attach(52);
+  vertical.attach(50);
 }
 
 void loop() {

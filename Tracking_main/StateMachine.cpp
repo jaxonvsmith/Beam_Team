@@ -25,6 +25,7 @@ void StateMachine::SM() {
       Serial.print("INIT\n");
       Print_flag = true;
       }
+      motors_sm.Return_To_Flat();
       motors_sm.Azmuth_Motor_Off();//turn off Azmuth Motor
       motors_sm.Horizon_Motor_Off();//turn off Horizon Motor
       motors_sm.Deploy_Motor_Off();//turn off Deploy Motor

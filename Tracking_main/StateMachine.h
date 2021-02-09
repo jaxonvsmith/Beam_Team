@@ -38,6 +38,26 @@ class StateMachine
     uint8_t LimitSwitch_Center = 49;
     uint8_t LimitSwitch_Deploy = 51;
     uint8_t LimitSwitch_Retract = 53;
+    //TAKEN FROM TRACKING_H
+        //Tolerance
+    int tol = 20;///Adjust as necessary
+    //photo resistor pins
+    const uint8_t ldrlt = A0; //LDR top left
+    const uint8_t ldrrt = A1; //LDR top rigt
+    const uint8_t ldrld = A2; //LDR down left
+    const uint8_t ldrrd = A3 ; //ldr down rigt
+    //photo resistor values
+    int lt; // top left
+    int rt; // top right
+    int ld; // down left
+    int rd; // down rigt
+    //average resistor values
+    int avt; // average value top
+    int avd; // average value down
+    int avl; // average value left
+    int avr; // average value right
+    int dvert; // check the difference of up and down
+    int dhoriz;// check the difference of left and right
 };
 
 #endif

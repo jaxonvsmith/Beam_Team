@@ -13,6 +13,7 @@ class tracking
     tracking();
     bool pos_correct();
     void adj_pos();
+    void INIT();
   private:
     //Tolerance
     int tol = 20;///Adjust as necessary

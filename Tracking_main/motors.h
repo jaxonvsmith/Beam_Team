@@ -27,6 +27,7 @@ class motors
     void Servo_Left();
     void Servo_Up();
     void Servo_Down();
+    void INIT();
   private:
     //...motors...
     const uint8_t Azmuth_Motor_Pos = 33;

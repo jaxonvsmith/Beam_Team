@@ -138,7 +138,11 @@ void StateMachine::SM() {
        Print_flag = false;
       }
 
-      if (-1 * tol > dhoriz || dhoriz > tol) { // check if the diffirence is in the tolerance
+      else if(-1 * tol > dhoriz || dhoriz > tol) { // check if the diffirence is in the tolerance
+        current_state = ADJ_POS;
+        Print_flag = false;
+      }
+      else{
         current_state = WAIT;
         Print_flag = false;
       }

@@ -37,6 +37,9 @@ void StateMachine::SM() {
       left_side = false;
       Prev_Deploy_Switch = false;
       Prev_Track_Switch = false;
+      horizon_correct = false;
+      vertical_correct = false;
+      system_correct = false;
       //pins
       pinMode(Deploy_Switch, INPUT);
       pinMode(Track_Switch, INPUT);
@@ -66,9 +69,20 @@ void StateMachine::SM() {
       Print_flag = false;
       break;
     case DEPLOY_STATUS:
+      bool OF_Status = digitalRead(OF_Switch);
+      bool Automatic_Status = digitalRead(Automatic_Switch);
       if (!Print_flag) {
         Serial.print("DEPLOY STATUS\n");
         Print_flag = true;
+      }
+      Prev_OF_Switch = OF_Status;
+      if(!OF_Status && Deploy_flag){
+       current_state = RETRACT;
+       Print_flag = false; 
+      }
+      if((OF_Status && !Deploy_flag)&& Automatic_Status){
+        current_state = DEPLOY;
+        Print_flag = false;
       }
       current_state = TRACKING_STATUS;
       Print_flag = false;
@@ -111,14 +125,6 @@ void StateMachine::SM() {
         Serial.print("CHECK_POS\n");
         Print_flag = true;
       }
-//      if (!tracking.pos_correct()) {
-//        current_state = ADJ_POS;
-//        Print_flag = false;
-//      }
-//      else {
-//        current_state = WAIT;
-//        Print_flag = false;
-//      }
 
       lt = analogRead(ldrlt); // top left
       rt = analogRead(ldrrt); // top right
@@ -134,15 +140,19 @@ void StateMachine::SM() {
       dhoriz = avl - avr;// check the diffirence og left and right
 
       if ((-1 * tol > dvert || dvert > tol)) { // check if the diffirence is in the tolerance
-       current_state = ADJ_POS;
-       Print_flag = false;
-      }
-
-      else if(-1 * tol > dhoriz || dhoriz > tol) { // check if the diffirence is in the tolerance
         current_state = ADJ_POS;
+        vertical_correct = false;
+        system_correct = false;
         Print_flag = false;
       }
-      else{
+
+      else if (-1 * tol > dhoriz || dhoriz > tol) { // check if the diffirence is in the tolerance
+        current_state = ADJ_POS;
+        horizon_correct = false;
+        system_correct = false;
+        Print_flag = false;
+      }
+      else {
         current_state = WAIT;
         Print_flag = false;
       }
@@ -152,9 +162,7 @@ void StateMachine::SM() {
         Serial.print("ADJ_POS\n");
         Print_flag = true;
       }
-      //tracking.adj_pos();
-      ///REPLACE THE ADJ POS FUNCTION
-      while (-1 * tol > dhoriz || dhoriz > tol) { // check if the diffirence is in the tolerance
+      while (!system_correct) {
         lt = analogRead(ldrlt); // top left
         rt = analogRead(ldrrt); // top right
         ld = analogRead(ldrld); // down left
@@ -168,49 +176,50 @@ void StateMachine::SM() {
         dvert = avt - avd; // check the diffirence of up and down
         dhoriz = avl - avr;// check the diffirence og left and right
 
-        if (avl > avr)
-        {
-          motors_sm.Servo_Left();
+        if ((-1 * tol > dvert || dvert > tol)) { // check if the diffirence is in the tolerance
+          vertical_correct = false;
+          system_correct = false;
         }
-        else if (avl < avr)
-        {
-          motors_sm.Servo_Right();
+        else{
+          vertical_correct = true;
         }
-        else if (avl = avr)
-        {
-          // nothing
-        }
-      }
-      Serial.print("dhoriz: ");
-      Serial.println(dvert);
-      Serial.print("avt: ");
-      Serial.println(avt);
-      Serial.print("avd: ");
-      Serial.println(avd);
-      while ((-1 * tol > dvert || dvert > tol)) { // check if the diffirence is in the tolerance
-        lt = analogRead(ldrlt); // top left
-        rt = analogRead(ldrrt); // top right
-        ld = analogRead(ldrld); // down left
-        rd = analogRead(ldrrd); // down rigt
 
-        avt = (lt + rt) / 2; // average value top
-        avd = (ld + rd) / 2; // average value down
-        avl = (lt + ld) / 2; // average value left
-        avr = (rt + rd) / 2; // average value right
-
-        dvert = avt - avd; // check the diffirence of up and down
-        dhoriz = avl - avr;// check the diffirence og left and right
-
-        if (avt > avd)
-        {
-          motors_sm.Servo_Up();
+        if (-1 * tol > dhoriz || dhoriz > tol) { // check if the diffirence is in the tolerance
+          horizon_correct = false;
+          system_correct = false;
         }
-        else if (avt < avd)
-        {
-          motors_sm.Servo_Down();
+        else {
+          horizon_correct = true;
         }
-        else if (avt == avd) {
-          //nothing
+        if (horizon_correct && vertical_correct) {
+          system_correct = true;
+        }
+        if (!horizon_correct) {
+          if (avl > avr)
+          {
+            motors_sm.Servo_Left();
+          }
+          else if (avl < avr)
+          {
+            motors_sm.Servo_Right();
+          }
+          else if (avl = avr)
+          {
+            // nothing
+          }
+        }
+        if (!vertical_correct && horizontal_correct) {
+          if (avt > avd)
+          {
+            motors_sm.Servo_Up();
+          }
+          else if (avt < avd)
+          {
+            motors_sm.Servo_Down();
+          }
+          else if (avt == avd) {
+            //nothing
+          }
         }
       }
       current_state = WAIT;

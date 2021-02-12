@@ -16,7 +16,7 @@ class tracking
     void INIT();
   private:
     //Tolerance
-    int tol = 20;///Adjust as necessary
+    int tol = 5;///Adjust as necessary
     //photo resistor pins
     const uint8_t ldrlt = A0; //LDR top left
     const uint8_t ldrrt = A1; //LDR top rigt

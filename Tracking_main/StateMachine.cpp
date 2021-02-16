@@ -29,24 +29,25 @@ void StateMachine::SM() {
       tracking.INIT();
       motors_sm.Return_To_Flat();
       motors_sm.Azmuth_Motor_Off();//turn off Azmuth Motor
-      motors_sm.Horizon_Motor_Off();//turn off Horizon Motor
+      motors_sm.Elevation_Motor_Off();//turn off Horizon Motor
       motors_sm.Deploy_Motor_Off();//turn off Deploy Motor
       Deploy_flag = false;
       Track_flag = false;
       s_state = false;
       left_side = false;
-      Prev_Deploy_Switch = false;
-      Prev_Track_Switch = false;
+      //Prev_Deploy_Switch = false;
+      //Prev_Track_Switch = false;
       horizon_correct = false;
       vertical_correct = false;
       system_correct = false;
       //pins
-      pinMode(Deploy_Switch, INPUT);
-      pinMode(Track_Switch, INPUT);
-      pinMode(LimitSwitch_Azmuth_Upper, INPUT);
-      pinMode(LimitSwitch_Azmuth_Lower, INPUT);
-      pinMode(LimitSwitch_Horizontal, INPUT);
-      pinMode(LimitSwitch_Center, INPUT);
+      //pinMode(Deploy_Switch, INPUT);
+      //pinMode(Track_Switch, INPUT);
+      pinMode(LimitSwitch_Azmuth_CW, INPUT);
+      pinMode(LimitSwitch_Azmuth_CCW, INPUT);
+      pinMode(LimitSwitch_Elevation_Upper, INPUT);
+      pinMode(LimitSwitch_Elevation_Lower, INPUT);
+      pinMode(LimitSwitch_Azmuth_Center, INPUT);
       pinMode(LimitSwitch_Deploy, INPUT);
       pinMode(LimitSwitch_Retract, INPUT);
       current_state = DEPLOY_STATUS;
@@ -57,6 +58,8 @@ void StateMachine::SM() {
         Serial.print("RETRACT\n");
         Print_flag = true;
       }
+      //Retract();.................................................UNCOMMENT FOR DC MOTORS........................................
+      Deploy_flag = false;
       current_state = DEPLOY_STATUS;
       Print_flag = false;
       break;
@@ -65,6 +68,8 @@ void StateMachine::SM() {
         Serial.print("DEPLOY\n");
         Print_flag = true;
       }
+      //Deploy();.................................................UNCOMMENT FOR DC MOTORS........................................
+      Deploy_flag = true;
       current_state = DEPLOY_STATUS;
       Print_flag = false;
       break;
@@ -76,32 +81,34 @@ void StateMachine::SM() {
         Print_flag = true;
       }
       Prev_OF_Switch = OF_Status;
-      if(!OF_Status && Deploy_flag){
-       current_state = RETRACT;
-       Print_flag = false; 
+      if (!OF_Status && Deploy_flag) {
+        current_state = RETRACT;
+        Print_flag = false;
+        break;
       }
-      if((OF_Status && !Deploy_flag)&& Automatic_Status){
+      if ((OF_Status && !Deploy_flag) && Automatic_Status) {
         current_state = DEPLOY;
         Print_flag = false;
+        break;
       }
       current_state = TRACKING_STATUS;
       Print_flag = false;
       break;
     case TRACKING_STATUS:
+      bool OF_Status = digitalRead(OF_Switch);
+      bool Automatic_Status = digitalRead(Automatic_Switch);
       if (!Print_flag) {
         Serial.print("TRACKING STATUS\n");
         Print_flag = true;
       }
-      s_state = digitalRead(Track_Switch);
       Serial.print("Track_Switch: ");
-      Serial.println(s_state);
-      Prev_Track_Switch = s_state;
-      if (s_state) {
+      if (OF_Status && Automatic_Status) {
         Track_flag = true;
         current_state = CHECK_POS;
         Print_flag = false;
       }
-      else if (!s_state && Track_flag) {
+      else if (!OF_Status && Automatic_Status && Track_flag == true) {
+        //Return_Flat();.......................................................NOT IMPLIMENTED YET......................................
         current_state = FLAT;
         Print_flag = false;
       }
@@ -180,7 +187,7 @@ void StateMachine::SM() {
           vertical_correct = false;
           system_correct = false;
         }
-        else{
+        else {
           vertical_correct = true;
         }
 
@@ -246,5 +253,47 @@ void StateMachine::SM() {
       break;
     default:
       break;
+  }
+}
+
+void Retract() {
+  while (digitalRead(!LimitSwitch_Retract)) {
+    motors_sm.Deploy_Motor_In();
+  }
+  motors_sm.Deploy_Motor_Off();
+}
+
+void Deploy() {
+  while (digitalRead(!LimitSwitch_Deploy)) {
+    motors_sm.Deploy_Motor_Out();
+  }
+  motors_sm.Deploy_Motor_Off();
+}
+void Return_Flat() {
+  bool moving_CW;
+  while (digitalRead(!LimitSwitch_Azmuth_Center)) {
+    if (closer_to_CW) {
+      motors_sm.Azmuth_Motor_CCW();
+      moving_CW = false;
+    }
+    else {
+      motors_sm.Azmuth_Motor_CW();
+      moving_CW = true;
+    }
+    if (digitalRead(LimitSwitch_Azmuth_CCW && !moving_CW)) {
+      //you were going the wrong direction;
+      motors_sm.Azmuth_Motor_Off()
+      delay(1000); //turn off to improve transition
+      motors_sm.Azmuth_Motor_CW;
+      moving_CW = true;
+    }
+    if (digitalRead(LimitSwitch_Azmuth_CW && moving_CW)) {
+      //you were going the wrong direction;
+      motors_sm.Azmuth_Motor_Off()
+      delay(1000); //turn off to improve transition
+      motors_sm.Azmuth_Motor_CW;
+      moving_CW = false;
+    }
+    break;
   }
 }

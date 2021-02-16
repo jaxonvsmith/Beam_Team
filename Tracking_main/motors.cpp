@@ -9,8 +9,8 @@
 motors::motors() {
   pinMode(Azmuth_Motor_Pos, OUTPUT);
   pinMode(Azmuth_Motor_Neg, OUTPUT);
-  pinMode(Horizon_Motor_Pos, OUTPUT);
-  pinMode(Horizon_Motor_Neg, OUTPUT);
+  pinMode(Elevation_Motor_Pos, OUTPUT);
+  pinMode(Elevation_Motor_Neg, OUTPUT);
   pinMode(Deploy_Motor_Pos, OUTPUT);
   pinMode(Deploy_Motor_Neg, OUTPUT);
   //set motor speed
@@ -27,13 +27,13 @@ void motors::INIT() {
   vertical.attach(50);
 }
 
-void motors::Azmuth_Motor_Up() {
-  Serial.print("Motor Up\n");
+void motors::Azmuth_Motor_CW() {
+  Serial.print("Motor CW\n");
   digitalWrite(Azmuth_Motor_Pos, HIGH);
   digitalWrite(Azmuth_Motor_Neg, LOW);
 }
-void motors::Azmuth_Motor_Down() {
-  Serial.print("Motor Down\n");
+void motors::Azmuth_Motor_CCW() {
+  Serial.print("Motor CCW\n");
   digitalWrite(Azmuth_Motor_Pos, LOW);
   digitalWrite(Azmuth_Motor_Neg, HIGH);
 }
@@ -41,17 +41,17 @@ void motors::Azmuth_Motor_Off() {
   digitalWrite(Azmuth_Motor_Pos, LOW);
   digitalWrite(Azmuth_Motor_Neg, LOW);
 }
-void motors::Horizon_Motor_Right() {
-  Serial.print("Motor Rigth\n");
-  digitalWrite(Horizon_Motor_Pos, LOW);
-  digitalWrite(Horizon_Motor_Neg, LOW);
+void motors::Elevation_Motor_Up() {
+  Serial.print("Motor Up\n");
+  digitalWrite(Elevation_Motor_Pos, HIGH);
+  digitalWrite(Elevation_Motor_Neg, LOW);
 }
-void motors::Horizon_Motor_Left() {
-  Serial.print("Motor Left\n");
-  digitalWrite(Horizon_Motor_Pos, LOW);
-  digitalWrite(Horizon_Motor_Neg, HIGH);
+void motors::Elevation_Motor_Down() {
+  Serial.print("Motor Down\n");
+  digitalWrite(Elevation_Motor_Pos, LOW);
+  digitalWrite(Elevation_Motor_Neg, HIGH);
 }
-void motors::Horizon_Motor_Off() {
+void motors::Elevation_Motor_Off() {
   digitalWrite(Horizon_Motor_Pos, LOW);
   digitalWrite(Horizon_Motor_Neg, LOW);
 }

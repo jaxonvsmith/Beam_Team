@@ -25,7 +25,7 @@ class StateMachine
     //bool Prev_Deploy_Switch;
     //bool Prev_Track_Switch;
     bool Prev_OF_Switch;
-    //bool Prev_Automatic_Switch; 
+    //bool Prev_Automatic_Switch;
     bool Deploy_flag;
     bool Track_flag;
     bool left_side;
@@ -33,6 +33,7 @@ class StateMachine
     bool horizon_correct;
     bool vertical_correct;
     bool system_correct;
+    bool closer_to_CW;
     //...switches...//
     const uint8_t OF_Switch = 29;
     const uint8_t Automatic_Switch = 27; //................................................................REFER TO AARONS PINOUT........................................................
@@ -43,14 +44,15 @@ class StateMachine
     //const uint8_t Deploy_Switch = 27;
     //const uint8_t Track_Switch = 29;
     //...limitswitch's...
-    uint8_t LimitSwitch_Azmuth_Upper = 31;
-    uint8_t LimitSwitch_Azmuth_Lower = 45;
-    uint8_t LimitSwitch_Horizontal = 47;
-    uint8_t LimitSwitch_Center = 49;
+    uint8_t LimitSwitch_Azmuth_CW = 31;
+    uint8_t LimitSwitch_Azmuth_CCW = 45;
+    uint8_t LimitSwitch_Azmuth_Center = 49;
+    uint8_t LimitSwitch_Elevation_Upper = 47;
+    uint8_t LimitSwitch_Elevation_Lower = 1; //............................................................REFER TO AARONS PINOUT........................................................
     uint8_t LimitSwitch_Deploy = 51;
     uint8_t LimitSwitch_Retract = 53;
     //TAKEN FROM TRACKING_H
-        //Tolerance
+    //Tolerance
     int tol = 20;///Adjust as necessary
     //photo resistor pins
     const uint8_t ldrlt = A0; //LDR top left

@@ -52,20 +52,20 @@ void motors::Elevation_Motor_Down() {
   digitalWrite(Elevation_Motor_Neg, HIGH);
 }
 void motors::Elevation_Motor_Off() {
-  digitalWrite(Horizon_Motor_Pos, LOW);
-  digitalWrite(Horizon_Motor_Neg, LOW);
+  digitalWrite(Elevation_Motor_Pos, LOW);
+  digitalWrite(Elevation_Motor_Neg, LOW);
 }
 void motors::Deploy_Motor_Out() {
-  digitalWrite(Horizon_Motor_Pos, HIGH);
-  digitalWrite(Horizon_Motor_Neg, LOW);
+  digitalWrite(Azmuth_Motor_Pos, HIGH);
+  digitalWrite(Azmuth_Motor_Neg, LOW);
 }
 void motors::Deploy_Motor_In() {
-  digitalWrite(Horizon_Motor_Pos, LOW);
-  digitalWrite(Horizon_Motor_Neg, HIGH);
+  digitalWrite(Azmuth_Motor_Pos, LOW);
+  digitalWrite(Azmuth_Motor_Neg, HIGH);
 }
 void motors::Deploy_Motor_Off() {
-  digitalWrite(Horizon_Motor_Pos, LOW);
-  digitalWrite(Horizon_Motor_Neg, LOW);
+  digitalWrite(Azmuth_Motor_Pos, LOW);
+  digitalWrite(Azmuth_Motor_Neg, LOW);
 }
 void motors::Return_To_Flat() {
   servov = 90;     // stand vertical servo

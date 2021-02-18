@@ -33,7 +33,8 @@ void StateMachine::SM() {
       motors_sm.Deploy_Motor_Off();//turn off Deploy Motor
       Deploy_flag = false;
       Track_flag = false;
-      s_state = false;
+      OF_Status = false;
+      Automatic_Status;
       left_side = false;
       //Prev_Deploy_Switch = false;
       //Prev_Track_Switch = false;
@@ -74,8 +75,8 @@ void StateMachine::SM() {
       Print_flag = false;
       break;
     case DEPLOY_STATUS:
-      bool OF_Status = digitalRead(OF_Switch);
-      bool Automatic_Status = digitalRead(Automatic_Switch);
+      OF_Status = digitalRead(OF_Switch);
+      Automatic_Status = digitalRead(Automatic_Switch);
       if (!Print_flag) {
         Serial.print("DEPLOY STATUS\n");
         Print_flag = true;
@@ -95,13 +96,12 @@ void StateMachine::SM() {
       Print_flag = false;
       break;
     case TRACKING_STATUS:
-      bool OF_Status = digitalRead(OF_Switch);
-      bool Automatic_Status = digitalRead(Automatic_Switch);
+      OF_Status = digitalRead(OF_Switch);
+      Automatic_Status = digitalRead(Automatic_Switch);
       if (!Print_flag) {
         Serial.print("TRACKING STATUS\n");
         Print_flag = true;
       }
-      Serial.print("Track_Switch: ");
       if (OF_Status && Automatic_Status) {
         Track_flag = true;
         current_state = CHECK_POS;
@@ -215,7 +215,7 @@ void StateMachine::SM() {
             // nothing
           }
         }
-        if (!vertical_correct && horizontal_correct) {
+        if (!vertical_correct && horizon_correct) {
           if (avt > avd)
           {
             motors_sm.Servo_Up();
@@ -233,6 +233,8 @@ void StateMachine::SM() {
       Print_flag = false;
       break;
     case WAIT:
+      OF_Status = digitalRead(OF_Switch);
+      Automatic_Status = digitalRead(Automatic_Switch);
       if (!Print_flag) {
         Serial.print("WAIT\n");
         Print_flag = true;
@@ -242,36 +244,173 @@ void StateMachine::SM() {
         current_state = TRACKING_STATUS;
         Print_flag = false;
       }
-      if (digitalRead(Track_Switch) != Prev_Track_Switch) {
-        current_state = TRACKING_STATUS;
-        Print_flag = false;
-      }
-      if (digitalRead(Deploy_Switch) != Prev_Deploy_Switch) {
+      if (OF_Status != Prev_OF_Switch) {
         current_state = DEPLOY_STATUS;
         Print_flag = false;
       }
+      if (!Automatic_Status) {
+        current_state = MANUAL;
+        Print_flag = false;
+        Deploy_flag = false;
+      }
+      break;
+    case MANUAL:
+      if (!Print_flag) {
+        Serial.print("MANUAL\n");
+        Print_flag = true;
+      }
+      if (digitalRead(Automatic_Switch)) {
+        current_state = DEPLOY_STATUS;
+        Print_flag = false;
+      }
+      if (digitalRead(Up_Switch)) {
+        current_state = UP;
+        Print_flag = false;
+      }
+      if (digitalRead(Down_Switch)) {
+        current_state = DOWN;
+        Print_flag = false;
+      }
+      if (digitalRead(CW_Switch)) {
+        current_state = CW;
+        Print_flag = false;
+      }
+      if (digitalRead(CCW_Switch)) {
+        current_state = CCW;
+        Print_flag = false;
+      }
+      if (digitalRead(Retract_Switch)) {
+        current_state = RETRACT_M;
+        Print_flag = false;
+      }
+      if (digitalRead(Deploy_Switch)) {
+        current_state = DEPLOY_M;
+        Print_flag = false;
+      }
+      break;
+    case UP:
+      bool up_motor_flag = false;
+      if (!Print_flag) {
+        Serial.print("UP\n");
+        Print_flag = true;
+      }
+      while (digitalRead(Up_Switch)) {
+        if (!up_motor_flag) {
+          motors_sm.Elevation_Motor_Up();
+        }
+        up_motor_flag = true;
+        if (digitalRead(LimitSwitch_Elevation_Upper)) {
+          motors_sm.Elevation_Motor_Off();
+          current_state = MANUAL;
+          Print_flag = false;
+          break;
+        }
+      }
+      motors_sm.Elevation_Motor_Off();
+      current_state = MANUAL;
+      Print_flag = false;
+      break;
+    case DOWN:
+      bool down_motor_flag = false;
+      if (!Print_flag) {
+        Serial.print("DOWN\n");
+        Print_flag = true;
+      }
+      while (digitalRead(Down_Switch)) {
+        if (!down_motor_flag) {
+          motors_sm.Elevation_Motor_Down();
+        }
+        down_motor_flag = true;
+        if (digitalRead(LimitSwitch_Elevation_Lower)) {
+          motors_sm.Elevation_Motor_Off();
+          current_state = MANUAL;
+          Print_flag = false;
+          break;
+        }
+      }
+      motors_sm.Elevation_Motor_Off();
+      current_state = MANUAL;
+      Print_flag = false;
+      break;
+    case CW:
+      bool CW_motor_flag = false;
+      if (!Print_flag) {
+        Serial.print("CW\n");
+        Print_flag = true;
+      }
+      while (digitalRead(CW_Switch)) {
+        if (!CW_motor_flag) {
+          motors_sm.Azmuth_Motor_CW();
+        }
+        CW_motor_flag = true;
+        if (digitalRead(LimitSwitch_Azmuth_CW)) {
+          motors_sm.Azmuth_Motor_Off();
+          current_state = MANUAL;
+          Print_flag = false;
+          break;
+        }
+      }
+      motors_sm.Azmuth_Motor_Off();
+      current_state = MANUAL;
+      Print_flag = false;
+      break;
+    case CCW:
+      bool CCW_motor_flag = false;
+      if (!Print_flag) {
+        Serial.print("CCW\n");
+        Print_flag = true;
+      }
+      while (digitalRead(CCW_Switch)) {
+        if (!CCW_motor_flag) {
+          motors_sm.Azmuth_Motor_CCW();
+        }
+        CCW_motor_flag = true;
+        if (digitalRead(LimitSwitch_Azmuth_CCW)) {
+          motors_sm.Azmuth_Motor_Off();
+          current_state = MANUAL;
+          Print_flag = false;
+          break;
+        }
+      }
+      motors_sm.Azmuth_Motor_Off();
+      current_state = MANUAL;
+      Print_flag = false;
+      break;
+    case RETRACT_M:
+      if (!Print_flag) {
+        Serial.print("RETRACT_M\n");
+        Print_flag = true;
+      }
+      motors_sm.Deploy_Motor_Off();
+      break;
+    case DEPLOY_M:
+      if (!Print_flag) {
+        Serial.print("DEPLOY_M\n");
+        Print_flag = true;
+      }
+      motors_sm.Deploy_Motor_Off();
       break;
     default:
       break;
   }
 }
 
-void Retract() {
+void StateMachine::Retract() {
   while (digitalRead(!LimitSwitch_Retract)) {
     motors_sm.Deploy_Motor_In();
   }
   motors_sm.Deploy_Motor_Off();
 }
 
-void Deploy() {
+void StateMachine::Deploy() {
   while (digitalRead(!LimitSwitch_Deploy)) {
     motors_sm.Deploy_Motor_Out();
   }
   motors_sm.Deploy_Motor_Off();
 }
-void Return_Flat() {
+void StateMachine::Return_Flat() {
   bool moving_CW;
-  while (digitalRead(!LimitSwitch_Azmuth_Center)) {
+  while (digitalRead(LimitSwitch_Azmuth_Center) == false) {
     if (closer_to_CW) {
       motors_sm.Azmuth_Motor_CCW();
       moving_CW = false;
@@ -280,20 +419,24 @@ void Return_Flat() {
       motors_sm.Azmuth_Motor_CW();
       moving_CW = true;
     }
-    if (digitalRead(LimitSwitch_Azmuth_CCW && !moving_CW)) {
+    if (digitalRead(LimitSwitch_Azmuth_CCW) && !moving_CW) {
       //you were going the wrong direction;
-      motors_sm.Azmuth_Motor_Off()
+      motors_sm.Azmuth_Motor_Off();
       delay(1000); //turn off to improve transition
-      motors_sm.Azmuth_Motor_CW;
+      motors_sm.Azmuth_Motor_CW();
       moving_CW = true;
     }
-    if (digitalRead(LimitSwitch_Azmuth_CW && moving_CW)) {
+    if (digitalRead(LimitSwitch_Azmuth_CW) && moving_CW) {
       //you were going the wrong direction;
-      motors_sm.Azmuth_Motor_Off()
+      motors_sm.Azmuth_Motor_Off();
       delay(1000); //turn off to improve transition
-      motors_sm.Azmuth_Motor_CW;
+      motors_sm.Azmuth_Motor_CW();
       moving_CW = false;
     }
-    break;
   }
+  motors_sm.Azmuth_Motor_Off();
+  while (digitalRead(LimitSwitch_Elevation_Lower) == false) {
+    motors_sm.Elevation_Motor_Down();
+  }
+  motors_sm.Elevation_Motor_Off();
 }

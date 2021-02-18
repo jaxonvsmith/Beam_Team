@@ -8,7 +8,8 @@
 #include "Arduino.h"
 
 //STATES:
-enum State_enum {INIT, RETRACT, DEPLOY, DEPLOY_STATUS, TRACKING_STATUS, FLAT, CHECK_POS, ADJ_POS, WAIT};
+enum State_enum {INIT, RETRACT, DEPLOY, DEPLOY_STATUS, TRACKING_STATUS, FLAT, 
+CHECK_POS, ADJ_POS, WAIT, MANUAL, UP, DOWN, CW, CCW, RETRACT_M, DEPLOY_M};
 
 class StateMachine
 {
@@ -16,7 +17,11 @@ class StateMachine
     StateMachine();
     void SM();
   private:
-    bool s_state;
+    void Retract();
+    void Deploy();
+    void Return_Flat();
+    bool OF_Status;
+    bool Automatic_Status;
     uint8_t current_state;
     //...timer...//
     unsigned long time_now = 0;
@@ -35,22 +40,22 @@ class StateMachine
     bool system_correct;
     bool closer_to_CW;
     //...switches...//
-    const uint8_t OF_Switch = 29;
-    const uint8_t Automatic_Switch = 27; //................................................................REFER TO AARONS PINOUT........................................................
-    const uint8_t Up_Switch = 1;         //................................................................REFER TO AARONS PINOUT........................................................
-    const uint8_t Down_Switch = 1;       //................................................................REFER TO AARONS PINOUT........................................................
-    const uint8_t Left_Switch = 1;       //................................................................REFER TO AARONS PINOUT........................................................
-    const uint8_t Right_Switch = 1;      //................................................................REFER TO AARONS PINOUT........................................................
-    //const uint8_t Deploy_Switch = 27;
-    //const uint8_t Track_Switch = 29;
+    const uint8_t OF_Switch = 45;
+    const uint8_t Automatic_Switch = 43; 
+    const uint8_t Up_Switch = 29;         
+    const uint8_t Down_Switch = 31;       
+    const uint8_t CW_Switch = 33;       
+    const uint8_t CCW_Switch = 35;      
+    const uint8_t Deploy_Switch = 37;
+    const uint8_t Retract_Switch = 39;
     //...limitswitch's...
-    uint8_t LimitSwitch_Azmuth_CW = 31;
-    uint8_t LimitSwitch_Azmuth_CCW = 45;
-    uint8_t LimitSwitch_Azmuth_Center = 49;
-    uint8_t LimitSwitch_Elevation_Upper = 47;
-    uint8_t LimitSwitch_Elevation_Lower = 1; //............................................................REFER TO AARONS PINOUT........................................................
-    uint8_t LimitSwitch_Deploy = 51;
-    uint8_t LimitSwitch_Retract = 53;
+    uint8_t LimitSwitch_Azmuth_CW = 36;
+    uint8_t LimitSwitch_Azmuth_CCW = 32;
+    uint8_t LimitSwitch_Azmuth_Center = 34;
+    uint8_t LimitSwitch_Elevation_Upper = 28;
+    uint8_t LimitSwitch_Elevation_Lower = 30; 
+    uint8_t LimitSwitch_Deploy = 24;
+    uint8_t LimitSwitch_Retract = 26;
     //TAKEN FROM TRACKING_H
     //Tolerance
     int tol = 20;///Adjust as necessary

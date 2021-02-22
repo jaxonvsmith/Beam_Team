@@ -8,7 +8,6 @@
    Servos
 */
 #include "StateMachine.h"
-#include "tracking.h"
 #include "motors.h"
 
 tracking tracking;
@@ -377,18 +376,48 @@ void StateMachine::SM() {
       Print_flag = false;
       break;
     case RETRACT_M:
+      bool Retract_motor_flag = false;
       if (!Print_flag) {
-        Serial.print("RETRACT_M\n");
+        Serial.print("RETEACT_M\n");
         Print_flag = true;
       }
+      while (digitalRead(Retract_Switch)) {
+        if (!Retract_motor_flag) {
+          motors_sm.Deploy_Motor_In();
+        }
+        Retract_motor_flag = true;
+        if (digitalRead(LimitSwitch_Retract)) {
+          motors_sm.Deploy_Motor_Off();
+          current_state = MANUAL;
+          Print_flag = false;
+          break;
+        }
+      }
       motors_sm.Deploy_Motor_Off();
+      current_state = MANUAL;
+      Print_flag = false;
       break;
     case DEPLOY_M:
+      bool Deploy_motor_flag = false;
       if (!Print_flag) {
         Serial.print("DEPLOY_M\n");
         Print_flag = true;
       }
+      while (digitalRead(Deploy_Switch)) {
+        if (!Deploy_motor_flag) {
+          motors_sm.Deploy_Motor_Out();
+        }
+        Deploy_motor_flag = true;
+        if (digitalRead(LimitSwitch_Deploy)) {
+          motors_sm.Deploy_Motor_Off();
+          current_state = MANUAL;
+          Print_flag = false;
+          break;
+        }
+      }
       motors_sm.Deploy_Motor_Off();
+      current_state = MANUAL;
+      Print_flag = false;
       break;
     default:
       break;

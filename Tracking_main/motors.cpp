@@ -74,24 +74,6 @@ void motors::Return_To_Flat() {
   delay(50);
   horizontal.write(servoh);
   Serial.print("SHOULD BE FLAT\n");
-  //  while (servoh != 90) {
-  //    if (servoh < 90) {
-  //      servoh = ++servoh;
-  //    }
-  //    if (servoh > 90) {
-  //      servoh = --servoh;
-  //    }
-  //    horizontal.write(servoh);
-  //  }
-  //  while (servov != 90) {
-  //    if (servov < 90) {
-  //      servov = ++servov;
-  //    }
-  //    if (servov > 90) {
-  //      servov = --servov;
-  //    }
-  //    vertical.write(servov);
-  //  }
 }
 void motors::Servo_Right() {
   Serial.print("Moving Right: ");

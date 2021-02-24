@@ -9,6 +9,7 @@
 */
 #include "StateMachine.h"
 #include "motors.h"
+#include "NES_Controller.h"
 
 tracking tracking;
 motors motors_sm;
@@ -182,7 +183,7 @@ void StateMachine::SM() {
         dvert = avt - avd; // check the diffirence of up and down
         dhoriz = avl - avr;// check the diffirence og left and right
 
-        if ((-1 * tol > dvert || dvert > tol)) { // check if the diffirence is in the tolerance
+        if ((-1 * tol > dvert || dvert > tol)) { // check if the diffirence is smaller than the tolerance
           vertical_correct = false;
           system_correct = false;
         }
@@ -204,10 +205,17 @@ void StateMachine::SM() {
           if (avl > avr)
           {
             motors_sm.Servo_Left();
+            motors_sm.Azmuth_Motor_CW();
+            //if motor hits the CW Limit, Rotate to the other side
+            //Move past center then keep tracking
+            //if the array moves all the way to the CCW switch then just wait for the next check
           }
           else if (avl < avr)
           {
             motors_sm.Servo_Right();
+            motors_sm.Azmuth_Motor_CCW();
+            //if motor hits the CCW Limit, Rotate to the other side
+            //Move past center then check position
           }
           else if (avl = avr)
           {
@@ -218,10 +226,13 @@ void StateMachine::SM() {
           if (avt > avd)
           {
             motors_sm.Servo_Up();
+            motors_sm.Elevation_Motor_Up();
+            //if right is equal to left but top is greater than bottom rotate 180 and keep tracking. 
           }
           else if (avt < avd)
           {
             motors_sm.Servo_Down();
+            motors_sm.Elevation_Motor_Down();
           }
           else if (avt == avd) {
             //nothing

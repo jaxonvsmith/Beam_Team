@@ -7,8 +7,8 @@
 #include "Arduino.h"
 
 motors::motors() {
-  pinMode(Azmuth_Motor_Pos, OUTPUT);
-  pinMode(Azmuth_Motor_Neg, OUTPUT);
+  pinMode(Azimuth_Motor_Pos, OUTPUT);
+  pinMode(Azimuth_Motor_Neg, OUTPUT);
   pinMode(Elevation_Motor_Pos, OUTPUT);
   pinMode(Elevation_Motor_Neg, OUTPUT);
   pinMode(Deploy_Motor_Pos, OUTPUT);
@@ -27,19 +27,19 @@ void motors::INIT() {
   vertical.attach(50);
 }
 
-void motors::Azmuth_Motor_CW() {
+void motors::Azimuth_Motor_CW() {
   Serial.print("Motor CW\n");
-  digitalWrite(Azmuth_Motor_Pos, HIGH);
-  digitalWrite(Azmuth_Motor_Neg, LOW);
+  digitalWrite(Azimuth_Motor_Pos, HIGH);
+  digitalWrite(Azimuth_Motor_Neg, LOW);
 }
-void motors::Azmuth_Motor_CCW() {
+void motors::Azimuth_Motor_CCW() {
   Serial.print("Motor CCW\n");
-  digitalWrite(Azmuth_Motor_Pos, LOW);
-  digitalWrite(Azmuth_Motor_Neg, HIGH);
+  digitalWrite(Azimuth_Motor_Pos, LOW);
+  digitalWrite(Azimuth_Motor_Neg, HIGH);
 }
-void motors::Azmuth_Motor_Off() {
-  digitalWrite(Azmuth_Motor_Pos, LOW);
-  digitalWrite(Azmuth_Motor_Neg, LOW);
+void motors::Azimuth_Motor_Off() {
+  digitalWrite(Azimuth_Motor_Pos, LOW);
+  digitalWrite(Azimuth_Motor_Neg, LOW);
 }
 void motors::Elevation_Motor_Up() {
   Serial.print("Motor Up\n");
@@ -56,16 +56,16 @@ void motors::Elevation_Motor_Off() {
   digitalWrite(Elevation_Motor_Neg, LOW);
 }
 void motors::Deploy_Motor_Out() {
-  digitalWrite(Azmuth_Motor_Pos, HIGH);
-  digitalWrite(Azmuth_Motor_Neg, LOW);
+  digitalWrite(Azimuth_Motor_Pos, HIGH);
+  digitalWrite(Azimuth_Motor_Neg, LOW);
 }
 void motors::Deploy_Motor_In() {
-  digitalWrite(Azmuth_Motor_Pos, LOW);
-  digitalWrite(Azmuth_Motor_Neg, HIGH);
+  digitalWrite(Azimuth_Motor_Pos, LOW);
+  digitalWrite(Azimuth_Motor_Neg, HIGH);
 }
 void motors::Deploy_Motor_Off() {
-  digitalWrite(Azmuth_Motor_Pos, LOW);
-  digitalWrite(Azmuth_Motor_Neg, LOW);
+  digitalWrite(Azimuth_Motor_Pos, LOW);
+  digitalWrite(Azimuth_Motor_Neg, LOW);
 }
 void motors::Return_To_Flat() {
   servov = 90;     // stand vertical servo

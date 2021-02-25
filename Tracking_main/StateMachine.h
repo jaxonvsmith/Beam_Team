@@ -49,9 +49,9 @@ class StateMachine
     const uint8_t Deploy_Switch = 37;
     const uint8_t Retract_Switch = 39;
     //...limitswitch's...
-    uint8_t LimitSwitch_Azmuth_CW = 36;
-    uint8_t LimitSwitch_Azmuth_CCW = 32;
-    uint8_t LimitSwitch_Azmuth_Center = 34;
+    uint8_t LimitSwitch_Azimuth_CW = 36;
+    uint8_t LimitSwitch_Azimuth_CCW = 32;
+    uint8_t LimitSwitch_Azimuth_Center = 34;
     uint8_t LimitSwitch_Elevation_Upper = 28;
     uint8_t LimitSwitch_Elevation_Lower = 30; 
     uint8_t LimitSwitch_Deploy = 24;
@@ -76,6 +76,17 @@ class StateMachine
     int avr; // average value right
     int dvert; // check the difference of up and down
     int dhoriz;// check the difference of left and right
+    //NES Controller
+    byte nesRegister  = 0;    // We will use this to hold current button states
+    //These values will corrilate to the values returned so we know which button is pressed
+    const int A_BUTTON         = 0; //Deploy
+    const int B_BUTTON         = 1; //Retract
+    const int SELECT_BUTTON    = 2;
+    const int START_BUTTON     = 3;
+    const int UP_BUTTON        = 4; //Up
+    const int DOWN_BUTTON      = 5; //Down
+    const int LEFT_BUTTON      = 6; //CW
+    const int RIGHT_BUTTON     = 7; //CCW
 };
 
 #endif

@@ -13,9 +13,9 @@ class motors
 {
   public:
     motors();
-    void Azmuth_Motor_CW();
-    void Azmuth_Motor_CCW();
-    void Azmuth_Motor_Off();
+    void Azimuth_Motor_CW();
+    void Azimuth_Motor_CCW();
+    void Azimuth_Motor_Off();
     void Elevation_Motor_Up();
     void Elevation_Motor_Down();
     void Elevation_Motor_Off();
@@ -34,9 +34,9 @@ class motors
     void Deploy_Off();
   private:
     //...motors...
-    const uint8_t Azmuth_Motor_Pos = 33;
-    const uint8_t Azmuth_Motor_Neg = 35;
-    const uint8_t Azmuth_Motor_PWM = 13;
+    const uint8_t Azimuth_Motor_Pos = 33;
+    const uint8_t Azimuth_Motor_Neg = 35;
+    const uint8_t Azimuth_Motor_PWM = 13;
     const uint8_t Elevation_Motor_Pos = 37;
     const uint8_t Elevation_Motor_Neg = 39;
     const uint8_t Elevation_Motor_PWM = 12;

@@ -107,7 +107,7 @@ void StateMachine::SM() {
         Print_flag = false;
       }
       else if (!OF_Status && Automatic_Status && Track_flag == true) {
-        //Return_Flat();.......................................................NOT IMPLIMENTED YET......................................
+        Return_Flat();
         current_state = FLAT;
         Print_flag = false;
       }
@@ -199,255 +199,297 @@ void StateMachine::SM() {
         }
         if (horizon_correct && vertical_correct) {
           system_correct = true;
+          motors_sm.Azimuth_Motor_Off();
+          motors_sm.Elevation_Motor_Off();
         }
         if (!horizon_correct) {
           if (avl > avr)
           {
             motors_sm.Servo_Left();
             motors_sm.Azimuth_Motor_CW();
-            if(digitalRead(LimitSwitch_Azimuth_CW)){ //if you hit the limit then rotate past center and keep tracking
-              while(digitalRead(LimitSwitch_Azimuth_Center)){ 
-                motors_sm.Azimuth_Motor_CCW();
-              }
+            if (digitalRead(LimitSwitch_Azimuth_Center)) {
+              closer_to_CW = true;
             }
-            //Move past center then keep tracking
+            if (digitalRead(LimitSwitch_Azimuth_CW)) { //if you hit the limit then rotate past center and keep tracking
+              motors_sm.Azimuth_Motor_Off();//turn off motor
+              delay(1000);//small delay to make changing rotation easier on the motor
+              while (digitalRead(LimitSwitch_Azimuth_Center) == LOW) { //Move past center then keep tracking
+                motors_sm.Azimuth_Motor_CCW();
+                if (LimitSwitch_Azimuth_CCW) {
+                  motors_sm.Azimuth_Motor_Off();//Went too far, something is wrong
+                }
+              }
+              delay(5000); //delay to get farther past center
+              motors_sm.Azimuth_Motor_Off();// turn off the motor
+              closer_to_CW = false;
+            }
             //if the array moves all the way to the CCW switch then just wait for the next check
           }
           else if (avl < avr)
           {
             motors_sm.Servo_Right();
             motors_sm.Azimuth_Motor_CCW();
-            //if motor hits the CCW Limit, Rotate to the other side
-            //Move past center then check position
+            if (digitalRead(LimitSwitch_Azimuth_Center)) {
+              closer_to_CW = false;
+            }
+            if (digitalRead(LimitSwitch_Azimuth_CCW)) {
+              motors_sm.Azimuth_Motor_Off();//turn off motor
+              delay(1000);//small delay to make changing rotation easier on the motor
+              while (digitalRead(LimitSwitch_Azimuth_Center) == LOW) { //Move past center then keep tracking
+                motors_sm.Azimuth_Motor_CW();
+                if (LimitSwitch_Azimuth_CW) {
+                  motors_sm.Azimuth_Motor_Off();//Went too far, something is wrong
+                }
+              }
+              delay(5000); //delay to get farther past center
+              motors_sm.Azimuth_Motor_Off();// turn off the motor
+              closer_to_CW = true;
+            }
+            else if (avl = avr)
+            {
+              motors_sm.Azimuth_Motor_Off();
+            }
           }
-          else if (avl = avr)
-          {
-            // nothing
+          if (!vertical_correct && horizon_correct) {
+            if (avt > avd) {
+              if (digitalRead(LimitSwitch_Elevation_Upper)) {
+                motors_sm.Elevation_Motor_Off(); //if right is equal to left but top is greater than bottom rotate 180 and keep tracking.
+              }
+              motors_sm.Servo_Up();
+              motors_sm.Elevation_Motor_Up();
+            }
+            else if (avt < avd)
+            {
+              if (digitalRead(LimitSwitch_Elevation_Lower)) {
+                motors_sm.Elevation_Motor_Off();
+                if (-1 * tol < dhoriz && dhoriz < tol) { //if within tolerance rotate 180 and keep tracking.
+                  if (closer_to_CW) {
+                    motors_sm.Azimuth_Motor_CCW();
+                    delay(20000); //NEED TO FIGURE OUT THIS VALUE>> TIME TO ROTATE 180 DEGREES
+                    motors_sm.Azimuth_Motor_Off();
+                  }
+                  else {
+                    motors_sm.Azimuth_Motor_CW();
+                    delay(20000); //NEED TO FIGURE OUT THIS VALUE>> TIME TO ROTATE 180 DEGREES
+                    motors_sm.Azimuth_Motor_Off();
+                  }
+                }
+              }
+              motors_sm.Servo_Down();
+              motors_sm.Elevation_Motor_Down();
+            }
+            else if (avt == avd) {
+              motors_sm.Elevation_Motor_Off();
+            }
           }
         }
-        if (!vertical_correct && horizon_correct) {
-          if (avt > avd)
-          {
-            motors_sm.Servo_Up();
+        current_state = WAIT;
+        Print_flag = false;
+        break;
+      case WAIT:
+        OF_Status = digitalRead(OF_Switch);
+        Automatic_Status = digitalRead(Automatic_Switch);
+        if (!Print_flag) {
+          Serial.print("WAIT\n");
+          Print_flag = true;
+        }
+        if (millis() >= time_now + TRACKING_DELAY) {
+          time_now += TRACKING_DELAY;
+          current_state = TRACKING_STATUS;
+          Print_flag = false;
+        }
+        if (OF_Status != Prev_OF_Switch) {
+          current_state = DEPLOY_STATUS;
+          Print_flag = false;
+        }
+        if (!Automatic_Status) {
+          current_state = MANUAL;
+          Print_flag = false;
+          Deploy_flag = false;
+        }
+        break;
+      case MANUAL:
+        if (!Print_flag) {
+          Serial.print("MANUAL\n");
+          Print_flag = true;
+        }
+        if (digitalRead(Automatic_Switch)) {
+          current_state = DEPLOY_STATUS;
+          Print_flag = false;
+        }
+        nesRegister = NES_Controller.readNesController();
+        if (digitalRead(Up_Switch) || bitRead(nesRegister, UP_BUTTON) == 0) {
+          current_state = UP;
+          Print_flag = false;
+        }
+        if (digitalRead(Down_Switch) || bitRead(nesRegister, DOWN_BUTTON) == 0) {
+          current_state = DOWN;
+          Print_flag = false;
+        }
+        if (digitalRead(CW_Switch) || bitRead(nesRegister, LEFT_BUTTON) == 0) {
+          current_state = CW;
+          Print_flag = false;
+        }
+        if (digitalRead(CCW_Switch) || bitRead(nesRegister, RIGHT_BUTTON) == 0) {
+          current_state = CCW;
+          Print_flag = false;
+        }
+        if (digitalRead(Retract_Switch) || bitRead(nesRegister, B_BUTTON) == 0) {
+          current_state = RETRACT_M;
+          Print_flag = false;
+        }
+        if (digitalRead(Deploy_Switch) || bitRead(nesRegister, A_BUTTON) == 0) {
+          current_state = DEPLOY_M;
+          Print_flag = false;
+        }
+        break;
+      case UP:
+        bool up_motor_flag = false;
+        if (!Print_flag) {
+          Serial.print("UP\n");
+          Print_flag = true;
+        }
+        nesRegister = NES_Controller.readNesController();
+        while (digitalRead(Up_Switch) || bitRead(nesRegister, UP_BUTTON) == 0) {
+          nesRegister = NES_Controller.readNesController();
+          if (!up_motor_flag) {
             motors_sm.Elevation_Motor_Up();
-            //if right is equal to left but top is greater than bottom rotate 180 and keep tracking. 
           }
-          else if (avt < avd)
-          {
-            motors_sm.Servo_Down();
-            motors_sm.Elevation_Motor_Down();
-          }
-          else if (avt == avd) {
-            //nothing
+          up_motor_flag = true;
+          if (digitalRead(LimitSwitch_Elevation_Upper)) {
+            motors_sm.Elevation_Motor_Off();
+            current_state = MANUAL;
+            Print_flag = false;
+            break;
           }
         }
-      }
-      current_state = WAIT;
-      Print_flag = false;
-      break;
-    case WAIT:
-      OF_Status = digitalRead(OF_Switch);
-      Automatic_Status = digitalRead(Automatic_Switch);
-      if (!Print_flag) {
-        Serial.print("WAIT\n");
-        Print_flag = true;
-      }
-      if (millis() >= time_now + TRACKING_DELAY) {
-        time_now += TRACKING_DELAY;
-        current_state = TRACKING_STATUS;
-        Print_flag = false;
-      }
-      if (OF_Status != Prev_OF_Switch) {
-        current_state = DEPLOY_STATUS;
-        Print_flag = false;
-      }
-      if (!Automatic_Status) {
+        motors_sm.Elevation_Motor_Off();
         current_state = MANUAL;
         Print_flag = false;
-        Deploy_flag = false;
-      }
-      break;
-    case MANUAL:
-      if (!Print_flag) {
-        Serial.print("MANUAL\n");
-        Print_flag = true;
-      }
-      if (digitalRead(Automatic_Switch)) {
-        current_state = DEPLOY_STATUS;
-        Print_flag = false;
-      }
-      nesRegister = NES_Controller.readNesController();
-      if (digitalRead(Up_Switch) || bitRead(nesRegister, UP_BUTTON) == 0) {
-        current_state = UP;
-        Print_flag = false;
-      }
-      if (digitalRead(Down_Switch) || bitRead(nesRegister, DOWN_BUTTON) == 0) {
-        current_state = DOWN;
-        Print_flag = false;
-      }
-      if (digitalRead(CW_Switch) || bitRead(nesRegister, LEFT_BUTTON) == 0) {
-        current_state = CW;
-        Print_flag = false;
-      }
-      if (digitalRead(CCW_Switch) || bitRead(nesRegister, RIGHT_BUTTON) == 0) {
-        current_state = CCW;
-        Print_flag = false;
-      }
-      if (digitalRead(Retract_Switch) || bitRead(nesRegister, B_BUTTON) == 0) {
-        current_state = RETRACT_M;
-        Print_flag = false;
-      }
-      if (digitalRead(Deploy_Switch) || bitRead(nesRegister, A_BUTTON) == 0) {
-        current_state = DEPLOY_M;
-        Print_flag = false;
-      }
-      break;
-    case UP:
-      bool up_motor_flag = false;
-      if (!Print_flag) {
-        Serial.print("UP\n");
-        Print_flag = true;
-      }
-      nesRegister = NES_Controller.readNesController();
-      while (digitalRead(Up_Switch) || bitRead(nesRegister, UP_BUTTON) == 0) {
+        break;
+      case DOWN:
+        bool down_motor_flag = false;
+        if (!Print_flag) {
+          Serial.print("DOWN\n");
+          Print_flag = true;
+        }
         nesRegister = NES_Controller.readNesController();
-        if (!up_motor_flag) {
-          motors_sm.Elevation_Motor_Up();
+        while (digitalRead(Down_Switch) || bitRead(nesRegister, DOWN_BUTTON) == 0) {
+          nesRegister = NES_Controller.readNesController();
+          if (!down_motor_flag) {
+            motors_sm.Elevation_Motor_Down();
+          }
+          down_motor_flag = true;
+          if (digitalRead(LimitSwitch_Elevation_Lower)) {
+            motors_sm.Elevation_Motor_Off();
+            current_state = MANUAL;
+            Print_flag = false;
+            break;
+          }
         }
-        up_motor_flag = true;
-        if (digitalRead(LimitSwitch_Elevation_Upper)) {
-          motors_sm.Elevation_Motor_Off();
-          current_state = MANUAL;
-          Print_flag = false;
-          break;
+        motors_sm.Elevation_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      case CW:
+        bool CW_motor_flag = false;
+        if (!Print_flag) {
+          Serial.print("CW\n");
+          Print_flag = true;
         }
-      }
-      motors_sm.Elevation_Motor_Off();
-      current_state = MANUAL;
-      Print_flag = false;
-      break;
-    case DOWN:
-      bool down_motor_flag = false;
-      if (!Print_flag) {
-        Serial.print("DOWN\n");
-        Print_flag = true;
-      }
-      nesRegister = NES_Controller.readNesController();
-      while (digitalRead(Down_Switch) || bitRead(nesRegister, DOWN_BUTTON) == 0) {
         nesRegister = NES_Controller.readNesController();
-        if (!down_motor_flag) {
-          motors_sm.Elevation_Motor_Down();
+        while (digitalRead(CW_Switch) || bitRead(nesRegister, LEFT_BUTTON) == 0) {
+          nesRegister = NES_Controller.readNesController();
+          if (!CW_motor_flag) {
+            motors_sm.Azimuth_Motor_CW();
+          }
+          CW_motor_flag = true;
+          if (digitalRead(LimitSwitch_Azimuth_CW)) {
+            motors_sm.Azimuth_Motor_Off();
+            current_state = MANUAL;
+            Print_flag = false;
+            break;
+          }
         }
-        down_motor_flag = true;
-        if (digitalRead(LimitSwitch_Elevation_Lower)) {
-          motors_sm.Elevation_Motor_Off();
-          current_state = MANUAL;
-          Print_flag = false;
-          break;
+        motors_sm.Azimuth_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      case CCW:
+        bool CCW_motor_flag = false;
+        if (!Print_flag) {
+          Serial.print("CCW\n");
+          Print_flag = true;
         }
-      }
-      motors_sm.Elevation_Motor_Off();
-      current_state = MANUAL;
-      Print_flag = false;
-      break;
-    case CW:
-      bool CW_motor_flag = false;
-      if (!Print_flag) {
-        Serial.print("CW\n");
-        Print_flag = true;
-      }
-      nesRegister = NES_Controller.readNesController();
-      while (digitalRead(CW_Switch) || bitRead(nesRegister, LEFT_BUTTON) == 0) {
         nesRegister = NES_Controller.readNesController();
-        if (!CW_motor_flag) {
-          motors_sm.Azimuth_Motor_CW();
+        while (digitalRead(CCW_Switch) || bitRead(nesRegister, RIGHT_BUTTON) == 0) {
+          nesRegister = NES_Controller.readNesController();
+          if (!CCW_motor_flag) {
+            motors_sm.Azimuth_Motor_CCW();
+          }
+          CCW_motor_flag = true;
+          if (digitalRead(LimitSwitch_Azimuth_CCW)) {
+            motors_sm.Azimuth_Motor_Off();
+            current_state = MANUAL;
+            Print_flag = false;
+            break;
+          }
         }
-        CW_motor_flag = true;
-        if (digitalRead(LimitSwitch_Azimuth_CW)) {
-          motors_sm.Azimuth_Motor_Off();
-          current_state = MANUAL;
-          Print_flag = false;
-          break;
+        motors_sm.Azimuth_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      case RETRACT_M:
+        bool Retract_motor_flag = false;
+        if (!Print_flag) {
+          Serial.print("RETEACT_M\n");
+          Print_flag = true;
         }
-      }
-      motors_sm.Azimuth_Motor_Off();
-      current_state = MANUAL;
-      Print_flag = false;
-      break;
-    case CCW:
-      bool CCW_motor_flag = false;
-      if (!Print_flag) {
-        Serial.print("CCW\n");
-        Print_flag = true;
-      }
-      nesRegister = NES_Controller.readNesController();
-      while (digitalRead(CCW_Switch) || bitRead(nesRegister, RIGHT_BUTTON) == 0) {
-      nesRegister = NES_Controller.readNesController();
-        if (!CCW_motor_flag) {
-          motors_sm.Azimuth_Motor_CCW();
-        }
-        CCW_motor_flag = true;
-        if (digitalRead(LimitSwitch_Azimuth_CCW)) {
-          motors_sm.Azimuth_Motor_Off();
-          current_state = MANUAL;
-          Print_flag = false;
-          break;
-        }
-      }
-      motors_sm.Azimuth_Motor_Off();
-      current_state = MANUAL;
-      Print_flag = false;
-      break;
-    case RETRACT_M:
-      bool Retract_motor_flag = false;
-      if (!Print_flag) {
-        Serial.print("RETEACT_M\n");
-        Print_flag = true;
-      }
-      nesRegister = NES_Controller.readNesController();
-      while (digitalRead(Retract_Switch) || bitRead(nesRegister, B_BUTTON) == 0) {
         nesRegister = NES_Controller.readNesController();
-        if (!Retract_motor_flag) {
-          motors_sm.Deploy_Motor_In();
+        while (digitalRead(Retract_Switch) || bitRead(nesRegister, B_BUTTON) == 0) {
+          nesRegister = NES_Controller.readNesController();
+          if (!Retract_motor_flag) {
+            motors_sm.Deploy_Motor_In();
+          }
+          Retract_motor_flag = true;
+          if (digitalRead(LimitSwitch_Retract)) {
+            motors_sm.Deploy_Motor_Off();
+            current_state = MANUAL;
+            Print_flag = false;
+            break;
+          }
         }
-        Retract_motor_flag = true;
-        if (digitalRead(LimitSwitch_Retract)) {
-          motors_sm.Deploy_Motor_Off();
-          current_state = MANUAL;
-          Print_flag = false;
-          break;
+        motors_sm.Deploy_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      case DEPLOY_M:
+        bool Deploy_motor_flag = false;
+        if (!Print_flag) {
+          Serial.print("DEPLOY_M\n");
+          Print_flag = true;
         }
-      }
-      motors_sm.Deploy_Motor_Off();
-      current_state = MANUAL;
-      Print_flag = false;
-      break;
-    case DEPLOY_M:
-      bool Deploy_motor_flag = false;
-      if (!Print_flag) {
-        Serial.print("DEPLOY_M\n");
-        Print_flag = true;
-      }
-      nesRegister = NES_Controller.readNesController();
-      while (digitalRead(Deploy_Switch) || bitRead(nesRegister, B_BUTTON) == 0) {
         nesRegister = NES_Controller.readNesController();
-        if (!Deploy_motor_flag) {
-          motors_sm.Deploy_Motor_Out();
+        while (digitalRead(Deploy_Switch) || bitRead(nesRegister, B_BUTTON) == 0) {
+          nesRegister = NES_Controller.readNesController();
+          if (!Deploy_motor_flag) {
+            motors_sm.Deploy_Motor_Out();
+          }
+          Deploy_motor_flag = true;
+          if (digitalRead(LimitSwitch_Deploy)) {
+            motors_sm.Deploy_Motor_Off();
+            current_state = MANUAL;
+            Print_flag = false;
+            break;
+          }
         }
-        Deploy_motor_flag = true;
-        if (digitalRead(LimitSwitch_Deploy)) {
-          motors_sm.Deploy_Motor_Off();
-          current_state = MANUAL;
-          Print_flag = false;
-          break;
-        }
+        motors_sm.Deploy_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      default:
+        break;
       }
-      motors_sm.Deploy_Motor_Off();
-      current_state = MANUAL;
-      Print_flag = false;
-      break;
-    default:
-      break;
   }
 }
 
@@ -464,6 +506,7 @@ void StateMachine::Deploy() {
   }
   motors_sm.Deploy_Motor_Off();
 }
+
 void StateMachine::Return_Flat() {
   bool moving_CW;
   while (digitalRead(LimitSwitch_Azimuth_Center) == false) {
@@ -489,6 +532,7 @@ void StateMachine::Return_Flat() {
       motors_sm.Azimuth_Motor_CW();
       moving_CW = false;
     }
+    //ADD AN ERROR CHECK IN CASE IT CANT FIND THE CENTER.
   }
   motors_sm.Azimuth_Motor_Off();
   while (digitalRead(LimitSwitch_Elevation_Lower) == false) {

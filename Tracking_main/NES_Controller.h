@@ -47,11 +47,11 @@ class NES_Controller
     //  Pin Declarations
     //===============================================================================
     //Inputs:
-    int nesData       = 4;    // The data pin for the NES controller
+    int nesData       = 27;    // The data pin for the NES controller
 
     //Outputs:
-    int nesClock      = 2;    // The clock pin for the NES controller
-    int nesLatch      = 3;    // The latch pin for the NES controller
+    int nesClock      = 23;    // The clock pin for the NES controller
+    int nesLatch      = 25;    // The latch pin for the NES controller
 };
 
 #endif

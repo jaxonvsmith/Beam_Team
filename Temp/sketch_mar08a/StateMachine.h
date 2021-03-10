@@ -24,13 +24,7 @@ class StateMachine
       CHECK_POS, 
       ADJ_POS, 
       WAIT, 
-      MANUAL, 
-      UP, 
-      DOWN, 
-      CW, 
-      CCW, 
-      RETRACT_M, 
-      DEPLOY_M};
+      MANUAL};
     void Retract();
     void Deploy();
     void Return_Flat();

@@ -37,11 +37,11 @@ class motors
     const uint8_t Azimuth_Motor_Pos = 38;
     const uint8_t Azimuth_Motor_Neg = 40;
     const uint8_t Azimuth_Motor_PWM = 11;
-    const uint8_t Elevation_Motor_Pos = 46;
-    const uint8_t Elevation_Motor_Neg = 48;
+    const uint8_t Elevation_Motor_Pos = 44;
+    const uint8_t Elevation_Motor_Neg = 42;
     const uint8_t Elevation_Motor_PWM = 12;
-    const uint8_t Deploy_Motor_Pos = 42;
-    const uint8_t Deploy_Motor_Neg = 44;
+    const uint8_t Deploy_Motor_Pos = 46;
+    const uint8_t Deploy_Motor_Neg = 48;
     const uint8_t Deploy_Motor_PWM = 13;
     const uint8_t MOTOR_SPEED = 150; //Pick a number 0-255
     Servo horizontal; // horizontal servo

@@ -48,8 +48,9 @@ class StateMachine
     bool system_correct;
     bool closer_to_CW;
     //...switches...//
-    const uint8_t OF_Switch = 45;
-    const uint8_t Automatic_Switch = 43; 
+    const uint8_t OF_Switch = 45; // THIS IS THE ON/OFF SWITCH FOR THE SYSTEM MAYBE
+    const uint8_t Manual_Switch = 41;
+    const uint8_t Automatic_Switch = 43; // THIS IS THE ON/OFF SWITCH FOR THE SYSTEM maybe
     const uint8_t Up_Switch = 29;         
     const uint8_t Down_Switch = 31;       
     const uint8_t CW_Switch = 33;       
@@ -68,10 +69,10 @@ class StateMachine
     //Tolerance
     int tol = 20;///Adjust as necessary
     //photo resistor pins
-    const uint8_t ldrlt = A0; //LDR top left
-    const uint8_t ldrrt = A1; //LDR top rigt
-    const uint8_t ldrld = A2; //LDR down left
-    const uint8_t ldrrd = A3 ; //ldr down right
+    const uint8_t ldrlt = A3; //LDR top left
+    const uint8_t ldrrt = A2; //LDR top rigt
+    const uint8_t ldrld = A1; //LDR down left
+    const uint8_t ldrrd = A0 ; //ldr down right
     //photo resistor values
     int lt; // top left
     int rt; // top right

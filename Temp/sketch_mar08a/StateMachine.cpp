@@ -10,6 +10,15 @@
 #include "StateMachine.h"
 #include "motors.h"
 
+bool OF_State = false;
+bool Manual_State = false;
+bool Up_State = false;
+bool Down_State = false;
+bool CW_State = false;
+bool CCW_State = false;
+bool Deploy_State = false;
+bool Retract_State = false;
+
 motors motors_sm;
 
 StateMachine::StateMachine() {
@@ -86,6 +95,13 @@ void StateMachine::SM() {
         Serial.print("DEPLOY STATUS\n");
         Print_flag = true;
       }
+      Serial.print("Prev ON/OFF Status: ");
+      Serial.println(Prev_OF_Switch);
+      Serial.print("ON/OFF Status: ");
+      Serial.println(OF_Status);
+      Serial.print("AUTO Status: ");
+      Serial.println(Automatic_Status);
+
       Prev_OF_Switch = OF_Status;
       if (!OF_Status && Deploy_flag) {
         current_state = RETRACT;
@@ -294,8 +310,16 @@ void StateMachine::SM() {
       Print_flag = false;
       break;
     case WAIT:
-      OF_Status = digitalRead(OF_Switch);
-      Automatic_Status = digitalRead(Automatic_Switch);
+      OF_State = false;
+      Manual_State = false;
+      if (digitalRead(Manual_Switch)) {
+        delay(20);
+        Manual_State = digitalRead(Manual_Switch);
+      }
+      if (digitalRead(OF_Switch)) {
+        delay(20);
+        OF_State = digitalRead(OF_Switch);
+      }
       if (!Print_flag) {
         Serial.print("WAIT\n");
         Print_flag = true;
@@ -304,25 +328,29 @@ void StateMachine::SM() {
         time_now += TRACKING_DELAY;
         current_state = TRACKING_STATUS;
         Print_flag = false;
+        break;
       }
-      if (OF_Status != Prev_OF_Switch) {
+      if (OF_State != Prev_OF_Switch) {
         current_state = DEPLOY_STATUS;
         Print_flag = false;
+        break;
       }
-      if (!Automatic_Status) {
+      if (Manual_State) {
         current_state = MANUAL;
         Print_flag = false;
         Deploy_flag = false;
+        break;
       }
       break;
     case MANUAL:
       //Debounce all of the switches
-      int Up_State = LOW;
-      int Down_State = LOW;
-      int CW_State = LOW;
-      int CCW_State = LOW;
-      int Deploy_State = LOW;
-      int Retract_State = LOW;
+      Up_State = false;
+      Down_State = false;
+      CW_State = false;
+      CCW_State = false;
+      Deploy_State = false;
+      Retract_State = false;
+      Manual_State = false;
       if (digitalRead(Up_Switch)) {
         delay(20);
         Up_State = digitalRead(Up_Switch);
@@ -347,6 +375,10 @@ void StateMachine::SM() {
         delay(20);
         Retract_State = digitalRead(Retract_Switch);
       }
+      if (digitalRead(Manual_Switch)) {
+        delay(20);
+        Manual_State = digitalRead(Manual_Switch);
+      }
       //nesRegister = NES_Controller.readNesController();
       //        Serial.print("UP: ");
       //        Serial.println(Up_State);
@@ -364,10 +396,11 @@ void StateMachine::SM() {
         Serial.print("MANUAL\n");
         Print_flag = true;
       }
-      if (digitalRead(Automatic_Switch)) {
+      if (Manual_State == false) {
         Serial.println("Switching to Auto mode");
         current_state = DEPLOY_STATUS;
         Print_flag = false;
+        break;
       }
       else if ((Up_State == HIGH)) {
         Serial.println("Made it into the Up");
@@ -531,6 +564,7 @@ void StateMachine::Retract() {
 }
 
 void StateMachine::Deploy() {
+  Serial.println("Made it to the Deploy function");
   while (digitalRead(!LimitSwitch_Deploy)) {
     motors_sm.Deploy_Motor_Out();
   }

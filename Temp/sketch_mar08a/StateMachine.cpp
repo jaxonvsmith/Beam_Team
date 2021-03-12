@@ -73,7 +73,13 @@ void StateMachine::SM() {
         Serial.print("RETRACT\n");
         Print_flag = true;
       }
-      Retract();
+      while (digitalRead(LimitSwitch_Retract) == LOW) {
+        motors_sm.Deploy_Motor_In();
+      }
+      motors_sm.Deploy_Motor_Off();
+      //go flat
+      //center
+      //if you flip the manual switch then it should go to the manual mode.
       Deploy_flag = false;
       current_state = DEPLOY_STATUS;
       Print_flag = false;
@@ -83,25 +89,23 @@ void StateMachine::SM() {
         Serial.print("DEPLOY\n");
         Print_flag = true;
       }
-      Deploy();
+      Serial.println("Deploy out");
+      while (digitalRead(LimitSwitch_Deploy) == LOW) {
+        motors_sm.Deploy_Motor_Out();
+      }
+      Serial.println("Turn off deploy motor");
+      motors_sm.Deploy_Motor_Off();
       Deploy_flag = true;
       current_state = DEPLOY_STATUS;
       Print_flag = false;
       break;
     case DEPLOY_STATUS:
       OF_Status = digitalRead(OF_Switch);
-      Automatic_Status = digitalRead(Automatic_Switch);
+      Automatic_Status = !digitalRead(Manual_Switch);
       if (!Print_flag) {
         Serial.print("DEPLOY STATUS\n");
         Print_flag = true;
       }
-      Serial.print("Prev ON/OFF Status: ");
-      Serial.println(Prev_OF_Switch);
-      Serial.print("ON/OFF Status: ");
-      Serial.println(OF_Status);
-      Serial.print("AUTO Status: ");
-      Serial.println(Automatic_Status);
-
       Prev_OF_Switch = OF_Status;
       if (!OF_Status && Deploy_flag) {
         current_state = RETRACT;
@@ -118,11 +122,15 @@ void StateMachine::SM() {
       break;
     case TRACKING_STATUS:
       OF_Status = digitalRead(OF_Switch);
-      Automatic_Status = digitalRead(Automatic_Switch);
+      Automatic_Status = !digitalRead(Manual_Switch);
       if (!Print_flag) {
         Serial.print("TRACKING STATUS\n");
         Print_flag = true;
       }
+      Serial.print("OF_Status: ");
+      Serial.println(OF_Status);
+      Serial.print("Automatic_Status: ");
+      Serial.println(Automatic_Status);
       if (OF_Status && Automatic_Status) {
         Track_flag = true;
         current_state = CHECK_POS;
@@ -196,10 +204,29 @@ void StateMachine::SM() {
         ld = analogRead(ldrld); // down left
         rd = analogRead(ldrrd); // down rigt
 
+        Serial.print("\n\n\n\n\nTop Left: ");
+        Serial.println(lt);
+        Serial.print("Bottom Left: ");
+        Serial.println(ld);
+        Serial.print("Top Right: ");
+        Serial.println(rt);
+        Serial.print("Bottom Right: ");
+        Serial.println(rd);
+
+
         avt = (lt + rt) / 2; // average value top
         avd = (ld + rd) / 2; // average value down
         avl = (lt + ld) / 2; // average value left
         avr = (rt + rd) / 2; // average value right
+
+        //        Serial.print("\n\n\n\n\nAverage Top: ");
+        //        Serial.println(avt);
+        //        Serial.print("Average Bottom: ");
+        //        Serial.println(avd);
+        //        Serial.print("Average Left: ");
+        //        Serial.println(avl);
+        //        Serial.print("Average Right: ");
+        //        Serial.println(avr);
 
         dvert = avt - avd; // check the diffirence of up and down
         dhoriz = avl - avr;// check the diffirence og left and right
@@ -227,7 +254,7 @@ void StateMachine::SM() {
         if (!horizon_correct) {
           if (avl > avr)
           {
-            motors_sm.Servo_Left();
+            //motors_sm.Servo_Left();
             motors_sm.Azimuth_Motor_CW();
             if (digitalRead(LimitSwitch_Azimuth_Center)) {
               closer_to_CW = true;
@@ -554,21 +581,6 @@ void StateMachine::SM() {
       break;
   }
 
-}
-
-void StateMachine::Retract() {
-  while (digitalRead(!LimitSwitch_Retract)) {
-    motors_sm.Deploy_Motor_In();
-  }
-  motors_sm.Deploy_Motor_Off();
-}
-
-void StateMachine::Deploy() {
-  Serial.println("Made it to the Deploy function");
-  while (digitalRead(!LimitSwitch_Deploy)) {
-    motors_sm.Deploy_Motor_Out();
-  }
-  motors_sm.Deploy_Motor_Off();
 }
 
 void StateMachine::Return_Flat() {

@@ -18,6 +18,8 @@ bool CW_State = false;
 bool CCW_State = false;
 bool Deploy_State = false;
 bool Retract_State = false;
+bool CW_ON = false;
+bool CCW_ON = false;
 
 motors motors_sm;
 
@@ -203,15 +205,15 @@ void StateMachine::SM() {
         rt = analogRead(ldrrt); // top right
         ld = analogRead(ldrld); // down left
         rd = analogRead(ldrrd); // down rigt
-
-        Serial.print("\n\n\n\n\nTop Left: ");
-        Serial.println(lt);
-        Serial.print("Bottom Left: ");
-        Serial.println(ld);
-        Serial.print("Top Right: ");
-        Serial.println(rt);
-        Serial.print("Bottom Right: ");
-        Serial.println(rd);
+        //
+        //        Serial.print("\n\n\n\n\nTop Left: ");
+        //        Serial.println(lt);
+        //        Serial.print("Bottom Left: ");
+        //        Serial.println(ld);
+        //        Serial.print("Top Right: ");
+        //        Serial.println(rt);
+        //        Serial.print("Bottom Right: ");
+        //        Serial.println(rd);
 
 
         avt = (lt + rt) / 2; // average value top
@@ -232,354 +234,397 @@ void StateMachine::SM() {
         dhoriz = avl - avr;// check the diffirence og left and right
 
         if ((-1 * tol > dvert || dvert > tol)) { // check if the diffirence is smaller than the tolerance
+          Serial.println("Elevation Incorrect");
           vertical_correct = false;
           system_correct = false;
         }
         else {
+          Serial.println("Elevation Correct");
+          motors_sm.Elevation_Motor_Off();
           vertical_correct = true;
         }
 
         if (-1 * tol > dhoriz || dhoriz > tol) { // check if the diffirence is in the tolerance
+          Serial.println("Azimuth Incorrect");
           horizon_correct = false;
           system_correct = false;
         }
         else {
+          Serial.println("Azimuth Correct");
+          motors_sm.Azimuth_Motor_Off();
           horizon_correct = true;
         }
         if (horizon_correct && vertical_correct) {
+          Serial.println("System Correct");
           system_correct = true;
+          Serial.println("Azimuth Motor Off (8)");
           motors_sm.Azimuth_Motor_Off();
           motors_sm.Elevation_Motor_Off();
+          CW_ON = false;
+          CCW_ON = false;
         }
         if (!horizon_correct) {
           if (avl > avr)
           {
-            //motors_sm.Servo_Left();
+            if (CCW_ON) {
+              motors_sm.Azimuth_Motor_Off();
+              CCW_ON = false;
+              delay(100);
+            }
             motors_sm.Azimuth_Motor_CW();
+            CW_ON = true;
             if (digitalRead(LimitSwitch_Azimuth_Center)) {
               closer_to_CW = true;
             }
             if (digitalRead(LimitSwitch_Azimuth_CW)) { //if you hit the limit then rotate past center and keep tracking
+              Serial.println("Azimuth Motor Off (9)");
               motors_sm.Azimuth_Motor_Off();//turn off motor
+              CW_ON = false;
               delay(1000);//small delay to make changing rotation easier on the motor
               while (digitalRead(LimitSwitch_Azimuth_Center) == LOW) { //Move past center then keep tracking
                 motors_sm.Azimuth_Motor_CCW();
+                CCW_ON = true;
                 if (LimitSwitch_Azimuth_CCW) {
+                  Serial.println("Azimuth Motor Off (10)");
                   motors_sm.Azimuth_Motor_Off();//Went too far, something is wrong
+                  CCW_ON = false;
                 }
               }
               delay(5000); //delay to get farther past center
+              Serial.println("Azimuth Motor Off (11)");
               motors_sm.Azimuth_Motor_Off();// turn off the motor
+              CCW_ON = false;
               closer_to_CW = false;
             }
             //if the array moves all the way to the CCW switch then just wait for the next check
           }
           else if (avl < avr)
           {
-            motors_sm.Servo_Right();
+            if (CW_ON) {
+              motors_sm.Azimuth_Motor_Off();
+              CW_ON = false;
+              delay(100);
+            }
             motors_sm.Azimuth_Motor_CCW();
+            CCW_ON = true;
             if (digitalRead(LimitSwitch_Azimuth_Center)) {
               closer_to_CW = false;
             }
             if (digitalRead(LimitSwitch_Azimuth_CCW)) {
+              Serial.println("Azimuth Motor Off (12)");
               motors_sm.Azimuth_Motor_Off();//turn off motor
+              CCW_ON = false;
               delay(1000);//small delay to make changing rotation easier on the motor
               while (digitalRead(LimitSwitch_Azimuth_Center) == LOW) { //Move past center then keep tracking
                 motors_sm.Azimuth_Motor_CW();
+                CW_ON = true;
                 if (LimitSwitch_Azimuth_CW) {
+                  Serial.println("Azimuth Motor Off (13)");
                   motors_sm.Azimuth_Motor_Off();//Went too far, something is wrong
+                  CW_ON = false;
                 }
               }
               delay(5000); //delay to get farther past center
+              Serial.println("Azimuth Motor Off (14)");
               motors_sm.Azimuth_Motor_Off();// turn off the motor
+              CW_ON = false;
               closer_to_CW = true;
             }
-            else if (avl = avr)
-            {
-              motors_sm.Azimuth_Motor_Off();
-            }
           }
-          if (!vertical_correct && horizon_correct) {
-            if (avt > avd) {
-              if (digitalRead(LimitSwitch_Elevation_Upper)) {
-                motors_sm.Elevation_Motor_Off(); //if right is equal to left but top is greater than bottom rotate 180 and keep tracking.
-              }
-              motors_sm.Servo_Up();
-              motors_sm.Elevation_Motor_Up();
-            }
-            else if (avt < avd)
-            {
-              if (digitalRead(LimitSwitch_Elevation_Lower)) {
-                motors_sm.Elevation_Motor_Off();
-                if (-1 * tol < dhoriz && dhoriz < tol) { //if within tolerance rotate 180 and keep tracking.
-                  if (closer_to_CW) {
-                    motors_sm.Azimuth_Motor_CCW();
-                    delay(20000); //NEED TO FIGURE OUT THIS VALUE>> TIME TO ROTATE 180 DEGREES
-                    motors_sm.Azimuth_Motor_Off();
-                  }
-                  else {
-                    motors_sm.Azimuth_Motor_CW();
-                    delay(20000); //NEED TO FIGURE OUT THIS VALUE>> TIME TO ROTATE 180 DEGREES
-                    motors_sm.Azimuth_Motor_Off();
-                  }
-                }
-              }
-              motors_sm.Servo_Down();
-              motors_sm.Elevation_Motor_Down();
-            }
-            else if (avt == avd) {
-              motors_sm.Elevation_Motor_Off();
-            }
+          else
+          {
+            Serial.println("Azimuth Position Correct!!");
+            motors_sm.Azimuth_Motor_Off();
+            CW_ON = false;
+            CCW_ON = false;
+            horizon_correct = true;
           }
         }
-      }
-      current_state = WAIT;
-      Print_flag = false;
-      break;
-    case WAIT:
-      OF_State = false;
-      Manual_State = false;
-      if (digitalRead(Manual_Switch)) {
-        delay(20);
-        Manual_State = digitalRead(Manual_Switch);
-      }
-      if (digitalRead(OF_Switch)) {
-        delay(20);
-        OF_State = digitalRead(OF_Switch);
-      }
-      if (!Print_flag) {
-        Serial.print("WAIT\n");
-        Print_flag = true;
-      }
-      if (millis() >= time_now + TRACKING_DELAY) {
-        time_now += TRACKING_DELAY;
-        current_state = TRACKING_STATUS;
-        Print_flag = false;
-        break;
-      }
-      if (OF_State != Prev_OF_Switch) {
-        current_state = DEPLOY_STATUS;
-        Print_flag = false;
-        break;
-      }
-      if (Manual_State) {
-        current_state = MANUAL;
-        Print_flag = false;
-        Deploy_flag = false;
-        break;
-      }
-      break;
-    case MANUAL:
-      //Debounce all of the switches
-      Up_State = false;
-      Down_State = false;
-      CW_State = false;
-      CCW_State = false;
-      Deploy_State = false;
-      Retract_State = false;
-      Manual_State = false;
-      if (digitalRead(Up_Switch)) {
-        delay(20);
-        Up_State = digitalRead(Up_Switch);
-      }
-      if (digitalRead(Down_Switch)) {
-        delay(20);
-        Down_State = digitalRead(Down_Switch);
-      }
-      if (digitalRead(CW_Switch)) {
-        delay(20);
-        CW_State = digitalRead(CW_Switch);
-      }
-      if (digitalRead(CCW_Switch)) {
-        delay(20);
-        CCW_State = digitalRead(CCW_Switch);
-      }
-      if (digitalRead(Deploy_Switch)) {
-        delay(20);
-        Deploy_State = digitalRead(Deploy_Switch);
-      }
-      if (digitalRead(Retract_Switch)) {
-        delay(20);
-        Retract_State = digitalRead(Retract_Switch);
-      }
-      if (digitalRead(Manual_Switch)) {
-        delay(20);
-        Manual_State = digitalRead(Manual_Switch);
-      }
-      //nesRegister = NES_Controller.readNesController();
-      //        Serial.print("UP: ");
-      //        Serial.println(Up_State);
-      //        Serial.print("DOWN: ");
-      //        Serial.println(Down_State);
-      //        Serial.print("CW: ");
-      //        Serial.println(CW_State);
-      //        Serial.print("CCW: ");
-      //        Serial.println(CCW_State);
-      //        Serial.print("DEPLOY: ");
-      //        Serial.println(Deploy_State);
-      //        Serial.print("RETRACT: ");
-      //        Serial.println(Retract_State);
-      if (!Print_flag) {
-        Serial.print("MANUAL\n");
-        Print_flag = true;
-      }
-      if (Manual_State == false) {
-        Serial.println("Switching to Auto mode");
-        current_state = DEPLOY_STATUS;
-        Print_flag = false;
-        break;
-      }
-      else if ((Up_State == HIGH)) {
-        Serial.println("Made it into the Up");
-        bool up_motor_flag = false;
-        while (digitalRead(Up_Switch)) {
-          if (digitalRead(LimitSwitch_Elevation_Upper)) {
-            Serial.println("Upper Limit Switch Triggered");
-            motors_sm.Elevation_Motor_Off();
-            current_state = MANUAL;
-            Print_flag = false;
-            break;
-          }
-          if (!up_motor_flag) {
-            Serial.println("Up Motor On");
+
+        if (!vertical_correct && horizon_correct) {
+          Serial.println("Adjusting the elevation");
+          if (avt > avd) {
+            if (digitalRead(LimitSwitch_Elevation_Upper)) {
+              motors_sm.Elevation_Motor_Off(); //if right is equal to left but top is greater than bottom rotate 180 and keep tracking.
+            }
             motors_sm.Elevation_Motor_Up();
           }
-          up_motor_flag = true;
-        }
-        Serial.println("Up Motor Off");
-        motors_sm.Elevation_Motor_Off();
-        current_state = MANUAL;
-      }
-      else if ((Down_State == HIGH)) {
-        Serial.println("Made it into the Down");
-        bool down_motor_flag = false;
-        while (digitalRead(Down_Switch)) {
-          if (digitalRead(LimitSwitch_Elevation_Lower)) {
-            Serial.println("Lower Limit Switch Triggered");
-            motors_sm.Elevation_Motor_Off();
-            current_state = MANUAL;
-            break;
-          }
-          if (!down_motor_flag) {
-            Serial.println("Down Motor On");
+          else if (avt < avd)
+          {
+            if (digitalRead(LimitSwitch_Elevation_Lower)) {
+              motors_sm.Elevation_Motor_Off();
+              if (-1 * tol < dhoriz && dhoriz < tol) { //if within tolerance rotate 180 and keep tracking.
+                if (closer_to_CW) {
+                  motors_sm.Azimuth_Motor_CCW();
+                  CCW_ON = true;
+                  delay(20000); //NEED TO FIGURE OUT THIS VALUE>> TIME TO ROTATE 180 DEGREES
+                  Serial.println("Azimuth Motor Off (16)");
+                  motors_sm.Azimuth_Motor_Off();
+                }
+                else {
+                  motors_sm.Azimuth_Motor_CW();
+                  CW_ON = true;
+                  delay(20000); //NEED TO FIGURE OUT THIS VALUE>> TIME TO ROTATE 180 DEGREES
+                  Serial.println("Azimuth Motor Off (17)");
+                  motors_sm.Azimuth_Motor_Off();
+                }
+              }
+            }
             motors_sm.Elevation_Motor_Down();
           }
-          down_motor_flag = true;
+          else if (avt == avd) {
+            motors_sm.Elevation_Motor_Off();
+          }
         }
-        Serial.println("Down Motor Off");
+      }
+  
+  current_state = WAIT;
+  Print_flag = false;
+  break;
+case WAIT:
+  OF_State = false;
+  Manual_State = false;
+  if (digitalRead(Manual_Switch)) {
+    delay(20);
+    Manual_State = digitalRead(Manual_Switch);
+  }
+  if (digitalRead(OF_Switch)) {
+    delay(20);
+    OF_State = digitalRead(OF_Switch);
+  }
+  if (!Print_flag) {
+    Serial.print("WAIT\n");
+    Print_flag = true;
+  }
+  if (millis() >= time_now + TRACKING_DELAY) {
+    time_now += TRACKING_DELAY;
+    current_state = TRACKING_STATUS;
+    Print_flag = false;
+    break;
+  }
+  if (OF_State != Prev_OF_Switch) {
+    current_state = DEPLOY_STATUS;
+    Print_flag = false;
+    break;
+  }
+  if (Manual_State) {
+    current_state = MANUAL;
+    Print_flag = false;
+    Deploy_flag = false;
+    break;
+  }
+  break;
+case MANUAL:
+  //Debounce all of the switches
+  Up_State = false;
+  Down_State = false;
+  CW_State = false;
+  CCW_State = false;
+  Deploy_State = false;
+  Retract_State = false;
+  Manual_State = false;
+  if (digitalRead(Up_Switch)) {
+    delay(20);
+    Up_State = digitalRead(Up_Switch);
+  }
+  if (digitalRead(Down_Switch)) {
+    delay(20);
+    Down_State = digitalRead(Down_Switch);
+  }
+  if (digitalRead(CW_Switch)) {
+    delay(20);
+    CW_State = digitalRead(CW_Switch);
+  }
+  if (digitalRead(CCW_Switch)) {
+    delay(20);
+    CCW_State = digitalRead(CCW_Switch);
+  }
+  if (digitalRead(Deploy_Switch)) {
+    delay(20);
+    Deploy_State = digitalRead(Deploy_Switch);
+  }
+  if (digitalRead(Retract_Switch)) {
+    delay(20);
+    Retract_State = digitalRead(Retract_Switch);
+  }
+  if (digitalRead(Manual_Switch)) {
+    delay(20);
+    Manual_State = digitalRead(Manual_Switch);
+  }
+  //nesRegister = NES_Controller.readNesController();
+  //        Serial.print("UP: ");
+  //        Serial.println(Up_State);
+  //        Serial.print("DOWN: ");
+  //        Serial.println(Down_State);
+  //        Serial.print("CW: ");
+  //        Serial.println(CW_State);
+  //        Serial.print("CCW: ");
+  //        Serial.println(CCW_State);
+  //        Serial.print("DEPLOY: ");
+  //        Serial.println(Deploy_State);
+  //        Serial.print("RETRACT: ");
+  //        Serial.println(Retract_State);
+  if (!Print_flag) {
+    Serial.print("MANUAL\n");
+    Print_flag = true;
+  }
+  if (Manual_State == false) {
+    Serial.println("Switching to Auto mode");
+    current_state = DEPLOY_STATUS;
+    Print_flag = false;
+    break;
+  }
+  else if ((Up_State == HIGH)) {
+    Serial.println("Made it into the Up");
+    bool up_motor_flag = false;
+    while (digitalRead(Up_Switch)) {
+      if (digitalRead(LimitSwitch_Elevation_Upper)) {
+        Serial.println("Upper Limit Switch Triggered");
         motors_sm.Elevation_Motor_Off();
         current_state = MANUAL;
-      }
-      else if ((CW_State == HIGH)) {
-        delay(20); //debounce time
-        Serial.println("Made it into the CW");
-        bool CW_motor_flag = false;
-        if (!Print_flag) {
-          Serial.print("CW\n");
-          Print_flag = true;
-        }
-        while (digitalRead(CW_Switch)) {
-          delay(20);  //debounce
-          if (digitalRead(LimitSwitch_Azimuth_CW)) {
-            Serial.println("CW Limit Switch Triggered");
-            motors_sm.Azimuth_Motor_Off();
-            current_state = MANUAL;
-            Print_flag = false;
-            break;
-          }
-          if (!CW_motor_flag) {
-            Serial.println("Azimuth Motor CW");
-            motors_sm.Azimuth_Motor_CW();
-          }
-          CW_motor_flag = true;
-        }
-        Serial.println("Azimuth Motor Off");
-        motors_sm.Azimuth_Motor_Off();
-        current_state = MANUAL;
         Print_flag = false;
+        break;
       }
-      else if ((CCW_State == HIGH)) {
-        Serial.println("Made it into the CCW");
-        bool CCW_motor_flag = false;
-        if (!Print_flag) {
-          Serial.print("CCW\n");
-          Print_flag = true;
-        }
-        while (digitalRead(CCW_Switch)) {
-          if (digitalRead(LimitSwitch_Azimuth_CCW)) {
-            Serial.println("CCW Limit Switch Triggered");
-            motors_sm.Azimuth_Motor_Off();
-            current_state = MANUAL;
-            break;
-          }
-          if (!CCW_motor_flag) {
-            Serial.println("Azimuth Motor CCW");
-            motors_sm.Azimuth_Motor_CCW();
-          }
-          CCW_motor_flag = true;
-        }
-        Serial.println("Azimuth Motor Off");
-        motors_sm.Azimuth_Motor_Off();
-        current_state = MANUAL;
-        Print_flag = false;
+      if (!up_motor_flag) {
+        Serial.println("Up Motor On");
+        motors_sm.Elevation_Motor_Up();
       }
-      else if ((Retract_State == HIGH)) {
-        Serial.println("Made it into the Retract");
-        bool Retract_motor_flag = false;
-        if (!Print_flag) {
-          Serial.print("RETEACT_M\n");
-          Print_flag = true;
-        }
-        while (digitalRead(Retract_Switch)) {
-          if (digitalRead(LimitSwitch_Retract)) {
-            Serial.println("Retract Limit Swich Triggered");
-            motors_sm.Deploy_Motor_Off();
-            current_state = MANUAL;
-            Print_flag = false;
-            break;
-          }
-          if (!Retract_motor_flag) {
-            Serial.println("Retract Motor On");
-            motors_sm.Deploy_Motor_In();
-          }
-          Retract_motor_flag = true;
-        }
-        Serial.println("Retract Motor Off");
-        motors_sm.Deploy_Motor_Off();
-        current_state = MANUAL;
-        Print_flag = false;
-      }
-      else if ((Deploy_State == HIGH)) {
-        Serial.println("Made it into the Deploy");
-        bool Deploy_motor_flag = false;
-        if (!Print_flag) {
-          Serial.print("Deploy_M\n");
-          Print_flag = true;
-        }
-        while (digitalRead(Deploy_Switch)) {
-          if (digitalRead(LimitSwitch_Deploy)) {
-            Serial.println("Deploy Limit Swich Triggered");
-            motors_sm.Deploy_Motor_Off();
-            current_state = MANUAL;
-            Print_flag = false;
-            break;
-          }
-          if (!Deploy_motor_flag) {
-            Serial.println("Deploy Motor On");
-            motors_sm.Deploy_Motor_Out();
-          }
-          Deploy_motor_flag = true;
-        }
-        Serial.println("Deploy Motor Off");
-        motors_sm.Deploy_Motor_Off();
-        current_state = MANUAL;
-        Print_flag = false;
-      }
-      break;
-    default:
-      Serial.println("WENT INTO THE DEFAULT CASE :(");
-      break;
+      up_motor_flag = true;
+    }
+    Serial.println("Up Motor Off");
+    motors_sm.Elevation_Motor_Off();
+    current_state = MANUAL;
   }
+  else if ((Down_State == HIGH)) {
+    Serial.println("Made it into the Down");
+    bool down_motor_flag = false;
+    while (digitalRead(Down_Switch)) {
+      if (digitalRead(LimitSwitch_Elevation_Lower)) {
+        Serial.println("Lower Limit Switch Triggered");
+        motors_sm.Elevation_Motor_Off();
+        current_state = MANUAL;
+        break;
+      }
+      if (!down_motor_flag) {
+        Serial.println("Down Motor On");
+        motors_sm.Elevation_Motor_Down();
+      }
+      down_motor_flag = true;
+    }
+    Serial.println("Down Motor Off");
+    motors_sm.Elevation_Motor_Off();
+    current_state = MANUAL;
+  }
+  else if ((CW_State == HIGH)) {
+    delay(20); //debounce time
+    Serial.println("Made it into the CW");
+    bool CW_motor_flag = false;
+    if (!Print_flag) {
+      Serial.print("CW\n");
+      Print_flag = true;
+    }
+    while (digitalRead(CW_Switch)) {
+      delay(20);  //debounce
+      if (digitalRead(LimitSwitch_Azimuth_CW)) {
+        Serial.println("CW Limit Switch Triggered");
+        motors_sm.Azimuth_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      }
+      if (!CW_motor_flag) {
+        Serial.println("Azimuth Motor CW");
+        motors_sm.Azimuth_Motor_CW();
+      }
+      CW_motor_flag = true;
+    }
+    Serial.println("Azimuth Motor Off(1)");
+    motors_sm.Azimuth_Motor_Off();
+    current_state = MANUAL;
+    Print_flag = false;
+  }
+  else if ((CCW_State == HIGH)) {
+    Serial.println("Made it into the CCW");
+    bool CCW_motor_flag = false;
+    if (!Print_flag) {
+      Serial.print("CCW\n");
+      Print_flag = true;
+    }
+    while (digitalRead(CCW_Switch)) {
+      if (digitalRead(LimitSwitch_Azimuth_CCW)) {
+        Serial.println("CCW Limit Switch Triggered");
+        motors_sm.Azimuth_Motor_Off();
+        current_state = MANUAL;
+        break;
+      }
+      if (!CCW_motor_flag) {
+        Serial.println("Azimuth Motor CCW");
+        motors_sm.Azimuth_Motor_CCW();
+      }
+      CCW_motor_flag = true;
+    }
+    Serial.println("Azimuth Motor Off(2)");
+    motors_sm.Azimuth_Motor_Off();
+    current_state = MANUAL;
+    Print_flag = false;
+  }
+  else if ((Retract_State == HIGH)) {
+    Serial.println("Made it into the Retract");
+    bool Retract_motor_flag = false;
+    if (!Print_flag) {
+      Serial.print("RETEACT_M\n");
+      Print_flag = true;
+    }
+    while (digitalRead(Retract_Switch)) {
+      if (digitalRead(LimitSwitch_Retract)) {
+        Serial.println("Retract Limit Swich Triggered");
+        motors_sm.Deploy_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      }
+      if (!Retract_motor_flag) {
+        Serial.println("Retract Motor On");
+        motors_sm.Deploy_Motor_In();
+      }
+      Retract_motor_flag = true;
+    }
+    Serial.println("Retract Motor Off");
+    motors_sm.Deploy_Motor_Off();
+    current_state = MANUAL;
+    Print_flag = false;
+  }
+  else if ((Deploy_State == HIGH)) {
+    Serial.println("Made it into the Deploy");
+    bool Deploy_motor_flag = false;
+    if (!Print_flag) {
+      Serial.print("Deploy_M\n");
+      Print_flag = true;
+    }
+    while (digitalRead(Deploy_Switch)) {
+      if (digitalRead(LimitSwitch_Deploy)) {
+        Serial.println("Deploy Limit Swich Triggered");
+        motors_sm.Deploy_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      }
+      if (!Deploy_motor_flag) {
+        Serial.println("Deploy Motor On");
+        motors_sm.Deploy_Motor_Out();
+      }
+      Deploy_motor_flag = true;
+    }
+    Serial.println("Deploy Motor Off");
+    motors_sm.Deploy_Motor_Off();
+    current_state = MANUAL;
+    Print_flag = false;
+  }
+  break;
+default:
+  Serial.println("WENT INTO THE DEFAULT CASE :(");
+  break;
+}
 
 }
 
@@ -596,6 +641,7 @@ void StateMachine::Return_Flat() {
     }
     if (digitalRead(LimitSwitch_Azimuth_CCW) && !moving_CW) {
       //you were going the wrong direction;
+      Serial.println("Azimuth Motor Off(4)");
       motors_sm.Azimuth_Motor_Off();
       delay(1000); //turn off to improve transition
       motors_sm.Azimuth_Motor_CW();
@@ -603,6 +649,7 @@ void StateMachine::Return_Flat() {
     }
     if (digitalRead(LimitSwitch_Azimuth_CW) && moving_CW) {
       //you were going the wrong direction;
+      Serial.println("Azimuth Motor Off (5)");
       motors_sm.Azimuth_Motor_Off();
       delay(1000); //turn off to improve transition
       motors_sm.Azimuth_Motor_CW();
@@ -610,6 +657,7 @@ void StateMachine::Return_Flat() {
     }
     //ADD AN ERROR CHECK IN CASE IT CANT FIND THE CENTER.
   }
+  Serial.println("Azimuth Motor Off(6)");
   motors_sm.Azimuth_Motor_Off();
   while (digitalRead(LimitSwitch_Elevation_Lower) == false) {
     motors_sm.Elevation_Motor_Down();

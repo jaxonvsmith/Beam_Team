@@ -33,7 +33,7 @@ class StateMachine
     uint8_t current_state;
     //...timer...//
     unsigned long time_now = 0;
-    const uint32_t TRACKING_DELAY = 10000;
+    const uint32_t TRACKING_DELAY = 30000;
     //...flags...//
     //bool Prev_Deploy_Switch;
     //bool Prev_Track_Switch;
@@ -67,7 +67,7 @@ class StateMachine
     uint8_t LimitSwitch_Retract = 26;
     //TAKEN FROM TRACKING_H
     //Tolerance
-    int tol = 20;///Adjust as necessary
+    int tol = 30;///Adjust as necessary
     //photo resistor pins
     const uint8_t ldrlt = A3; //LDR top left
     const uint8_t ldrrt = A2; //LDR top rigt

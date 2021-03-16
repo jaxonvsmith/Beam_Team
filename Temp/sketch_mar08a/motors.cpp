@@ -38,6 +38,7 @@ void motors::Azimuth_Motor_CCW() {
   digitalWrite(Azimuth_Motor_Neg, HIGH);
 }
 void motors::Azimuth_Motor_Off() {
+  Serial.print("Azimuth Motor Off(3)\n");
   digitalWrite(Azimuth_Motor_Pos, LOW);
   digitalWrite(Azimuth_Motor_Neg, LOW);
 }

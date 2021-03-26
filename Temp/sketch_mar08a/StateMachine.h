@@ -13,27 +13,37 @@ class StateMachine
     StateMachine();
     void SM();
   private:
-  //STATES:
+    //STATES:
     enum State_enum {
-      INIT, 
-      RETRACT, 
-      DEPLOY, 
-      DEPLOY_STATUS, 
-      TRACKING_STATUS, 
+      INIT,
+      RETRACT,
+      DEPLOY,
+      DEPLOY_STATUS,
+      TRACKING_STATUS,
       FLAT,
-      CHECK_POS, 
-      ADJ_POS, 
-      WAIT, 
-      MANUAL};
+      CHECK_POS,
+      ADJ_POS,
+      WAIT,
+      MANUAL
+    };
+    enum Safety_enum {
+      SUNNY,
+      OVERCAST,
+      NIGHT
+    };
     void Retract();
     void Deploy();
     void Return_Flat();
     bool OF_Status;
     bool Automatic_Status;
+    bool Manual_Status;
     uint8_t current_state;
+    uint8_t safety_state;
     //...timer...//
     unsigned long time_now = 0;
+    unsigned long time_delay = 0;
     const uint32_t TRACKING_DELAY = 30000;
+    const uint32_t ROTATE_180 = 10000;
     //...flags...//
     //bool Prev_Deploy_Switch;
     //bool Prev_Track_Switch;
@@ -51,18 +61,21 @@ class StateMachine
     const uint8_t OF_Switch = 45; // THIS IS THE ON/OFF SWITCH FOR THE SYSTEM MAYBE
     const uint8_t Manual_Switch = 41;
     const uint8_t Automatic_Switch = 43; // THIS IS THE ON/OFF SWITCH FOR THE SYSTEM maybe
-    const uint8_t Up_Switch = 29;         
-    const uint8_t Down_Switch = 31;       
-    const uint8_t CW_Switch = 33;       
-    const uint8_t CCW_Switch = 35;      
+    const uint8_t Up_Switch = 29;
+    const uint8_t Down_Switch = 31;
+    const uint8_t CW_Switch = 33;
+    const uint8_t CCW_Switch = 35;
     const uint8_t Deploy_Switch = 37;
     const uint8_t Retract_Switch = 39;
+    //..delay timer..
+    const uint16_t 180_TICK_COUNT = 300;
+    int cntr;//counter for delays
     //...limitswitch's...
     uint8_t LimitSwitch_Azimuth_CW = 36;
     uint8_t LimitSwitch_Azimuth_CCW = 32;
     uint8_t LimitSwitch_Azimuth_Center = 34;
     uint8_t LimitSwitch_Elevation_Upper = 28;
-    uint8_t LimitSwitch_Elevation_Lower = 30; 
+    uint8_t LimitSwitch_Elevation_Lower = 30;
     uint8_t LimitSwitch_Deploy = 24;
     uint8_t LimitSwitch_Retract = 26;
     //TAKEN FROM TRACKING_H
@@ -85,6 +98,19 @@ class StateMachine
     int avr; // average value right
     int dvert; // check the difference of up and down
     int dhoriz;// check the difference of left and right
+    //..Voltage Detection..
+    const int voltageSensor = A10;
+    float vOUT = 0.0;
+    float vIN = 0.0;
+    float R1 = 30000.0;
+    float R2 = 7500.0;
+    int value = 0;
+    const uint8_t sunny_threashold_lower = 0;
+    const uint8_t sunny_threashold_upper = 0; //.........................ADJUST THESE ONCE WE HAVE THE DATA.........................
+    const uint8_t overcast_threashold_lower = 0;
+    const uint8_t overcast_threashold_upper = 0;
+    const uint8_t night_threashold_lower = 0;
+    const uint8_t night_threashold_upper = 0;
     //NES Controller
     byte nesRegister  = 0;    // We will use this to hold current button states
     //These values will corrilate to the values returned so we know which button is pressed

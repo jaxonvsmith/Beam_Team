@@ -57,6 +57,7 @@ class StateMachine
     bool vertical_correct;
     bool system_correct;
     bool closer_to_CW;
+    bool safety_status;
     //...switches...//
     const uint8_t OF_Switch = 45; // THIS IS THE ON/OFF SWITCH FOR THE SYSTEM MAYBE
     const uint8_t Manual_Switch = 41;
@@ -68,13 +69,13 @@ class StateMachine
     const uint8_t Deploy_Switch = 37;
     const uint8_t Retract_Switch = 39;
     //..delay timer..
-    const uint16_t 180_TICK_COUNT = 300;
+    const uint32_t TICK_COUNT_180 = 300;
     int cntr;//counter for delays
     //...limitswitch's...
     uint8_t LimitSwitch_Azimuth_CW = 36;
     uint8_t LimitSwitch_Azimuth_CCW = 32;
     uint8_t LimitSwitch_Azimuth_Center = 34;
-    uint8_t LimitSwitch_Elevation_Upper = 28;
+    uint8_t LimitSwitch_Elevation_Upper = 28;//PCB Diagram has it labeled as 28 but in testing we found it was actually 36
     uint8_t LimitSwitch_Elevation_Lower = 30;
     uint8_t LimitSwitch_Deploy = 24;
     uint8_t LimitSwitch_Retract = 26;

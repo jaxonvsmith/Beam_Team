@@ -59,7 +59,7 @@ class StateMachine
     bool closer_to_CW;
     bool safety_status;
     //...switches...//
-    const uint8_t OF_Switch = 45; // THIS IS THE ON/OFF SWITCH FOR THE SYSTEM MAYBE
+    const uint8_t OF_Switch = 45; // This is the Deploy/Retract Switch. This only works while in "AUTO MODE"
     const uint8_t Manual_Switch = 41;
     const uint8_t Automatic_Switch = 43; // THIS IS THE ON/OFF SWITCH FOR THE SYSTEM maybe
     const uint8_t Up_Switch = 29;
@@ -81,7 +81,7 @@ class StateMachine
     uint8_t LimitSwitch_Retract = 26;
     //TAKEN FROM TRACKING_H
     //Tolerance
-    int tol = 30;///Adjust as necessary
+    int tol = 40;///Adjust as necessary
     //photo resistor pins
     const uint8_t ldrlt = A3; //LDR top left
     const uint8_t ldrrt = A2; //LDR top rigt
@@ -112,6 +112,10 @@ class StateMachine
     const uint8_t overcast_threashold_upper = 0;
     const uint8_t night_threashold_lower = 0;
     const uint8_t night_threashold_upper = 0;
+    //Wind sensor
+    int wind_reading = 0;
+    const uint8_t wind_sensor = A4; //.......................................CHANGE TO MATCH THE WIND SENSOR PIN......................
+    const uint16_t WIND_THREASHOLD = 6000; //................................DIAL THIS IN.............................................
     //NES Controller
     byte nesRegister  = 0;    // We will use this to hold current button states
     //These values will corrilate to the values returned so we know which button is pressed

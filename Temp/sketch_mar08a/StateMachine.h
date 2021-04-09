@@ -42,7 +42,7 @@ class StateMachine
     //...timer...//
     unsigned long time_now = 0;
     unsigned long time_delay = 0;
-    const uint32_t TRACKING_DELAY = 30000;
+    const uint32_t TRACKING_DELAY = 450000; //5 minutes
     const uint32_t ROTATE_180 = 10000;
     //...flags...//
     //bool Prev_Deploy_Switch;
@@ -92,6 +92,11 @@ class StateMachine
     int rt; // top right
     int ld; // down left
     int rd; // down rigt
+    //fudge factor to account for difference in values
+    double lt_fudge = 1.15; 
+    double rt_fudge = 1.07;
+    double ld_fudge = 1.45;
+    double rd_fudge = 1.0;
     //average resistor values
     int avt; // average value top
     int avd; // average value down

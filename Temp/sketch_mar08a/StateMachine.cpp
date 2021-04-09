@@ -84,6 +84,7 @@ void StateMachine::SM() {
         Print_flag = false;
         break;
       }
+      Return_Flat();
       while (digitalRead(LimitSwitch_Retract) == LOW) {
         motors_sm.Deploy_Motor_In();
         if (digitalRead(Manual_Switch)) {
@@ -100,7 +101,6 @@ void StateMachine::SM() {
         }
       }
       motors_sm.Deploy_Motor_Off();
-      Return_Flat();
       Deploy_flag = false;
       current_state = DEPLOY_STATUS;
       Print_flag = false;
@@ -274,9 +274,13 @@ void StateMachine::SM() {
       }
 
       lt = analogRead(ldrlt); // top left
+      lt = lt * lt_fudge;
       rt = analogRead(ldrrt); // top right
+      rt = rt * rt_fudge;
       ld = analogRead(ldrld); // down left
+      ld = ld * ld_fudge;
       rd = analogRead(ldrrd); // down rigt
+      rd = rd * rd_fudge;
 
       avt = (lt + rt) / 2; // average value top
       avd = (ld + rd) / 2; // average value down
@@ -327,10 +331,14 @@ void StateMachine::SM() {
           break;
         }
         lt = analogRead(ldrlt); // top left
+        lt = lt * lt_fudge;
         rt = analogRead(ldrrt); // top right
+        rt = rt * rt_fudge;
         ld = analogRead(ldrld); // down left
+        ld = ld * ld_fudge;
         rd = analogRead(ldrrd); // down rigt
-        //
+        rd = rd * rd_fudge;
+
         //        Serial.print("\n\n\n\n\nTop Left: ");
         //        Serial.println(lt);
         //        Serial.print("Bottom Left: ");
@@ -404,16 +412,21 @@ void StateMachine::SM() {
               closer_to_CW = true;
             }
             if (digitalRead(LimitSwitch_Azimuth_CW)) { //if you hit the limit then rotate past center and keep tracking
-              Serial.println("Azimuth Motor Off (9)");
+              Serial.println("CW Limit Switch Hit... Rotate past center and keep tracking (Make sure interrupt is long enough)");
+              Serial.println("Azimuth Motor Off (9) THIS ONE");
               motors_sm.Azimuth_Motor_Off();//turn off motor
               CW_ON = false;
               delay(1000);//small delay to make changing rotation easier on the motor
               while (digitalRead(LimitSwitch_Azimuth_Center) == LOW) { //Move past center then keep tracking
-                motors_sm.Azimuth_Motor_CCW();
-                CCW_ON = true;
+                if (CCW_ON == false) {
+                  motors_sm.Azimuth_Motor_CCW();
+                  CCW_ON = true;
+                }
                 if (digitalRead(LimitSwitch_Azimuth_CCW)) {
                   Serial.println("Azimuth Motor Off (10)");
+                  Serial.println("Error: Make sure center limit switch is working");
                   motors_sm.Azimuth_Motor_Off();//Went too far, something is wrong
+                  closer_to_CW = false;
                   CCW_ON = false;
                 }
               }
@@ -438,6 +451,7 @@ void StateMachine::SM() {
               closer_to_CW = false;
             }
             if (digitalRead(LimitSwitch_Azimuth_CCW)) {
+              Serial.println("CCW Limit Switch Triggered... rotate past center and keep tracking");
               if (CCW_ON) {
                 Serial.println("Azimuth Motor Off (12)");
                 motors_sm.Azimuth_Motor_Off();//turn off motor
@@ -448,7 +462,9 @@ void StateMachine::SM() {
                 motors_sm.Azimuth_Motor_CW();
                 CW_ON = true;
                 if (digitalRead(LimitSwitch_Azimuth_CW)) {
+                  Serial.println("Error: Check center limit switch and make sure it is working");
                   Serial.println("Azimuth Motor Off (13)");
+                  closer_to_CW = true;
                   motors_sm.Azimuth_Motor_Off();//Went too far, something is wrong
                   CW_ON = false;
                 }
@@ -759,6 +775,9 @@ void StateMachine::SM() {
             Serial.println("Azimuth Motor CW");
             motors_sm.Azimuth_Motor_CW();
           }
+          if (digitalRead(LimitSwitch_Azimuth_Center)) {
+            closer_to_CW = true;
+          }
           CW_motor_flag = true;
         }
         Serial.println("Azimuth Motor Off(1)");
@@ -783,6 +802,9 @@ void StateMachine::SM() {
           if (!CCW_motor_flag) {
             Serial.println("Azimuth Motor CCW");
             motors_sm.Azimuth_Motor_CCW();
+          }
+          if (digitalRead(LimitSwitch_Azimuth_Center)) {
+            closer_to_CW = false;
           }
           CCW_motor_flag = true;
         }
@@ -852,6 +874,7 @@ void StateMachine::SM() {
 }
 
 void StateMachine::Return_Flat() {
+  Serial.println("\n\n\nReturn to flat");
   bool moving_CW;
   while (digitalRead(LimitSwitch_Azimuth_Center) == false) {
     if (digitalRead(Manual_Switch)) {
@@ -866,48 +889,50 @@ void StateMachine::Return_Flat() {
       Print_flag = false;
       break;
     }
-    if (closer_to_CW) {
+    while (digitalRead(LimitSwitch_Elevation_Lower) == false) {
+      motors_sm.Elevation_Motor_Down();
+      if (digitalRead(Manual_Switch)) {
+        motors_sm.Elevation_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      }
+      if (digitalRead(OF_Switch)) {         ////////////////UNLESS IT IS DOWN FOR ENVIRONMENTAL REASONS (HEAVY RAIN)
+        motors_sm.Elevation_Motor_Off();
+        current_state = DEPLOY;
+        Print_flag = false;
+        break;
+      }
+    }
+    motors_sm.Elevation_Motor_Off();
+    if (closer_to_CW && !digitalRead(LimitSwitch_Azimuth_CCW)) {
       motors_sm.Azimuth_Motor_CCW();
       moving_CW = false;
     }
-    else {
+    else if (!closer_to_CW && !digitalRead(LimitSwitch_Azimuth_CW)) {
       motors_sm.Azimuth_Motor_CW();
       moving_CW = true;
     }
     if (digitalRead(LimitSwitch_Azimuth_CCW) && !moving_CW) {
-      //you were going the wrong direction;
+      Serial.println("Going the wrong direction, switch directions");//you were going the wrong direction;
       Serial.println("Azimuth Motor Off(4)");
       motors_sm.Azimuth_Motor_Off();
+      closer_to_CW = false;
       delay(1000); //turn off motor for a sec to improve transition
       motors_sm.Azimuth_Motor_CW();
       moving_CW = true;
     }
     if (digitalRead(LimitSwitch_Azimuth_CW) && moving_CW) {
-      //you were going the wrong direction;
+      Serial.println("Going the wrong direction, switch directions");//you were going the wrong direction;
       Serial.println("Azimuth Motor Off (5)");
       motors_sm.Azimuth_Motor_Off();
+      closer_to_CW = true;
       delay(1000); //turn off to improve transition
-      motors_sm.Azimuth_Motor_CW();
+      motors_sm.Azimuth_Motor_CCW();
       moving_CW = false;
     }
     //ADD AN ERROR CHECK IN CASE IT CANT FIND THE CENTER.
   }
   Serial.println("Azimuth Motor Off(6)");
   motors_sm.Azimuth_Motor_Off();
-  while (digitalRead(LimitSwitch_Elevation_Lower) == false) {
-    motors_sm.Elevation_Motor_Down();
-    if (digitalRead(Manual_Switch)) {
-      motors_sm.Elevation_Motor_Off();
-      current_state = MANUAL;
-      Print_flag = false;
-      break;
-    }
-    if (digitalRead(OF_Switch)) {         ////////////////UNLESS IT IS DOWN FOR ENVIRONMENTAL REASONS (HEAVY RAIN)
-      motors_sm.Elevation_Motor_Off();
-      current_state = DEPLOY;
-      Print_flag = false;
-      break;
-    }
-  }
-  motors_sm.Elevation_Motor_Off();
 }

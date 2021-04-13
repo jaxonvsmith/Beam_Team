@@ -26,10 +26,16 @@ class StateMachine
       WAIT,
       MANUAL
     };
+    //Safety status
     enum Safety_enum {
       SUNNY,
       OVERCAST,
       NIGHT
+    };
+    //Keep track to switch between azimuth and elevation
+    enum Adjust_enum {
+      AZIMUTH,
+      ELEVATION
     };
     void Retract();
     void Deploy();
@@ -37,12 +43,14 @@ class StateMachine
     bool OF_Status;
     bool Automatic_Status;
     bool Manual_Status;
+    bool Adjust_turn; //switch between fixing the azimuth and elevation so it isn't as choppy
     uint8_t current_state;
     uint8_t safety_state;
     //...timer...//
     unsigned long time_now = 0;
     unsigned long time_delay = 0;
-    const uint32_t TRACKING_DELAY = 450000; //5 minutes
+    const uint32_t DELAY_IN_MIN = 1;
+    const uint32_t TRACKING_DELAY = DELAY_IN_MIN * 60000; //converts to milliseconds
     const uint32_t ROTATE_180 = 10000;
     //...flags...//
     //bool Prev_Deploy_Switch;
@@ -69,17 +77,16 @@ class StateMachine
     const uint8_t Deploy_Switch = 37;
     const uint8_t Retract_Switch = 39;
     //..delay timer..
-    const uint32_t TICK_COUNT_180 = 300;
+    const uint32_t TICK_COUNT_180 = 3000;//THIS IS NOT THE CORRECT VALUE. ADJUST THIS FOR 180 DEGREES
     int cntr;//counter for delays
     //...limitswitch's...
     uint8_t LimitSwitch_Azimuth_CW = 36;
     uint8_t LimitSwitch_Azimuth_CCW = 32;
     uint8_t LimitSwitch_Azimuth_Center = 34;
-    uint8_t LimitSwitch_Elevation_Upper = 28;//PCB Diagram has it labeled as 28 but in testing we found it was actually 36
+    uint8_t LimitSwitch_Elevation_Upper = 28;
     uint8_t LimitSwitch_Elevation_Lower = 30;
     uint8_t LimitSwitch_Deploy = 24;
     uint8_t LimitSwitch_Retract = 26;
-    //TAKEN FROM TRACKING_H
     //Tolerance
     int tol = 40;///Adjust as necessary
     //photo resistor pins
@@ -111,6 +118,7 @@ class StateMachine
     float R1 = 30000.0;
     float R2 = 7500.0;
     int value = 0;
+    //Threashold values (THESE HAVE NOT BEEN SET YET. THESE WILL BE DEPENDANT ON THE VOLTAGE FROM THE SOLAR PANEL THAT CONNECTS TO THE BATTERY)
     const uint8_t sunny_threashold_lower = 0;
     const uint8_t sunny_threashold_upper = 0; //.........................ADJUST THESE ONCE WE HAVE THE DATA.........................
     const uint8_t overcast_threashold_lower = 0;
@@ -118,7 +126,7 @@ class StateMachine
     const uint8_t night_threashold_lower = 0;
     const uint8_t night_threashold_upper = 0;
     //Wind sensor
-    int wind_reading = 0;
+    int wind_reading = 0; //THIS VALUE HAS NOT BEEN FACTORED IN YET. SEE DOCUMENTATION FOR THE VALUES FOUND USING A WIND TUNNEL IF ANNOMOMITER WE BOUGHT IS USED
     const uint8_t wind_sensor = A4; //.......................................CHANGE TO MATCH THE WIND SENSOR PIN......................
     const uint16_t WIND_THREASHOLD = 6000; //................................DIAL THIS IN.............................................
     //NES Controller

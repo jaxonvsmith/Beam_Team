@@ -3,28 +3,26 @@
   Created by Jaxon Smith on 1/29/2021
 */
 
-/*
-   Impliment tracking switch
-   Servos
-*/
 #include "StateMachine.h"
 #include "motors.h"
 
-bool OF_State = false;
-bool Manual_State = false;
-bool Up_State = false;
-bool Down_State = false;
-bool CW_State = false;
-bool CCW_State = false;
-bool Deploy_State = false;
-bool Retract_State = false;
-bool CW_ON = false;
-bool CCW_ON = false;
+bool OF_State = false; //Retract/Deploy switch
+bool Manual_State = false; //Manual/Auto Switch
+bool Up_State = false; //Up Switch
+bool Down_State = false; //Down Switch
+bool CW_State = false; //CW Switch(Left)
+bool CCW_State = false; //CCW Switch(Right)
+bool Deploy_State = false; //Deploy Switch
+bool Retract_State = false; //Retract Switch
 
-motors motors_sm;
+//These flags are used to control the logic of the software
+bool CW_ON = false; //Keep track of if the Solar array is moving Clock-Wise
+bool CCW_ON = false; //Keep track of if the Solar array is moving Counter-Clock-Wise
+
+motors motors_sm; //create an object to be able to call the motors functions
 
 StateMachine::StateMachine() {
-  current_state = INIT;
+  current_state = INIT; //Initialize the state machine
 }
 
 void StateMachine::SM() {
@@ -35,23 +33,20 @@ void StateMachine::SM() {
         Print_flag = true;
       }
       motors_sm.INIT();
-      motors_sm.Return_To_Flat();
       motors_sm.Azimuth_Motor_Off();//turn off Azmuth Motor
       motors_sm.Elevation_Motor_Off();//turn off Horizon Motor
       motors_sm.Deploy_Motor_Off();//turn off Deploy Motor
+      /* Initialaze all of the flags */
       Deploy_flag = false;
       Track_flag = false;
       OF_Status = false;
+      Adjust_turn = AZIMUTH;
       Automatic_Status;
       left_side = false;
-      //Prev_Deploy_Switch = false;
-      //Prev_Track_Switch = false;
       horizon_correct = false;
       vertical_correct = false;
       system_correct = false;
-      //pins
-      //pinMode(Deploy_Switch, INPUT);
-      //pinMode(Track_Switch, INPUT);
+      /* set the appropriate pins */
       pinMode(LimitSwitch_Azimuth_CW, INPUT);
       pinMode(LimitSwitch_Azimuth_CCW, INPUT);
       pinMode(LimitSwitch_Elevation_Upper, INPUT);
@@ -67,14 +62,15 @@ void StateMachine::SM() {
       pinMode(CCW_Switch, INPUT);
       pinMode(Deploy_Switch, INPUT);
       pinMode(Retract_Switch, INPUT);
-      current_state = DEPLOY_STATUS;
-      safety_state = SUNNY;
+      
+      current_state = DEPLOY_STATUS; //move to the next state
+      safety_state = SUNNY; //Assume sunny but adjust otherwise
       Print_flag = false;
       break;
     case RETRACT:
-      OF_Status = digitalRead(OF_Switch);
-      Manual_Status = digitalRead(Manual_Switch);
-      if (!Print_flag) {
+      OF_Status = digitalRead(OF_Switch); //Check the Deploy/Retract Switch
+      Manual_Status = digitalRead(Manual_Switch); //Check the Manual Auto Switch
+      if (!Print_flag) { //Print out the current state
         Serial.print("RETRACT\n");
         Print_flag = true;
       }
@@ -88,15 +84,16 @@ void StateMachine::SM() {
         Print_flag = false;
         break;
       }
-      while (digitalRead(LimitSwitch_Retract) == LOW) {
+      Return_Flat();
+      while (digitalRead(LimitSwitch_Retract) == LOW) { //Retract panels in
         motors_sm.Deploy_Motor_In();
-        if (digitalRead(Manual_Switch)) {
+        if (digitalRead(Manual_Switch)) { //check if the manual switch is flipped while retracting
           motors_sm.Deploy_Motor_Off();
           current_state = MANUAL;
           Print_flag = false;
           break;
         }
-        if (digitalRead(OF_Switch)) {
+        if (digitalRead(OF_Switch)) { //Check to see if the deploy switch is flipped
           motors_sm.Deploy_Motor_Off();
           current_state = DEPLOY;
           Print_flag = false;
@@ -104,14 +101,13 @@ void StateMachine::SM() {
         }
       }
       motors_sm.Deploy_Motor_Off();
-      Return_Flat();
       Deploy_flag = false;
       current_state = DEPLOY_STATUS;
       Print_flag = false;
       break;
     case DEPLOY:
-      OF_Status = digitalRead(OF_Switch);
-      Manual_Status = digitalRead(Manual_Switch);
+      OF_Status = digitalRead(OF_Switch); //Check the Deploy/Retract Switch
+      Manual_Status = digitalRead(Manual_Switch); //Check the Manual/Automatic Switch
       if (!Print_flag) {
         Serial.print("DEPLOY\n");
         Print_flag = true;
@@ -126,8 +122,7 @@ void StateMachine::SM() {
         Print_flag = false;
         break;
       }
-      Serial.println("Deploy out");
-      while (digitalRead(LimitSwitch_Deploy) == LOW) {
+      while (digitalRead(LimitSwitch_Deploy) == LOW) { //Deploy motors out
         motors_sm.Deploy_Motor_Out();
         if (digitalRead(Manual_Switch)) {
           motors_sm.Deploy_Motor_Off();
@@ -142,26 +137,86 @@ void StateMachine::SM() {
           break;
         }
       }
-      Serial.println("Turn off deploy motor");
       motors_sm.Deploy_Motor_Off();
       Deploy_flag = true;
       current_state = DEPLOY_STATUS;
       Print_flag = false;
       break;
+
     case DEPLOY_STATUS:
-      OF_Status = digitalRead(OF_Switch);
-      Automatic_Status = !digitalRead(Manual_Switch);
+      OF_Status = digitalRead(OF_Switch); //Check Deploy/Retract Switch
+      Automatic_Status = !digitalRead(Manual_Switch); //Check Manual/Auto switch
       if (!Print_flag) {
         Serial.print("DEPLOY STATUS\n");
         Print_flag = true;
       }
       Prev_OF_Switch = OF_Status;
-      if (!OF_Status && Deploy_flag) {
+      /* Read the voltage of the solar panel
+          safety_state 0 - Sunny, track as normal
+          safety_state 1 - Overcast, Go Flat
+          safety_state 2 - Night, Close up
+      */
+      value = analogRead(voltageSensor); //Read the value on the voltage sensor
+      vOUT = (value * 5.0) / 1024.0; 
+      vIN = vOUT / (R2 / (R1 + R2)); //convert to actual voltage and use as safety status threasholds
+      Serial.print("vIN: ");
+      Serial.println(vIN);
+      /* Safety state:
+          This will read the voltage from the solar panel and determine which state will
+          be most effective for the environment. The idea is that while it is sunny the solar array will track
+          normally. While overcast it will return to flat, and at night it will close completely. A historesis
+          has been put in place so it won't bounce between states. This will only check during the regular 
+          checks that it automatically preforms periodically. 
+                     Limits for checking
+
+         ------------------------------------- sunny upper (100%)
+                         SUNNY
+         - - - - - - - - - - - - - - - - - - -  overcast upper
+         -------------------------------------- sunny lower
+                       OVERCAST
+         -------------------------------------- night upper
+         - - - - - - - - - - - - - - - - - - - overcast lower
+                         NIGHT
+         -------------------------------------- night lower (5%)
+
+         If the wind is too strong the solar array will act as if it is overcast and
+         return to flat for one cycle.
+      */
+      //     THE SAFETY STATE METHOD BELOW HAS NOT BEEN TESTED YET. VALUES NEED TO BE ADDED FOR THE THREASHOLDS
+      if (safety_state == SUNNY) { 
+        if (vIN <= sunny_threashold_lower) { //If threashold is below a certain level move to OVERCAST
+          safety_state = OVERCAST;
+        }
+        else {
+          safety_state = SUNNY;
+        }
+      }
+      else if (safety_state == OVERCAST) {
+        if (vIN >= overcast_threashold_upper) { //If threashold is above a certain level move to SUNNY
+          safety_state = SUNNY;
+        }
+        else if (vIN <= overcast_threashold_lower) {//If threashold is below a certain level move to NIGHT
+          safety_state = NIGHT;
+        }
+        else {
+          safety_state = OVERCAST;
+        }
+      }
+      else {
+        if (vIN >= night_threashold_lower) { //If trheashold is above a certain level move to OVERCAST
+          safety_state = OVERCAST;
+        }
+        else {
+          safety_state = NIGHT;
+        }
+      }
+
+      if (!OF_Status && Deploy_flag) { //Check to see if the Retract Switch has been triggered
         current_state = RETRACT;
         Print_flag = false;
         break;
       }
-      if ((OF_Status && !Deploy_flag) && Automatic_Status && (safety_state != NIGHT)) {
+      if ((OF_Status && !Deploy_flag) && Automatic_Status && (safety_state != NIGHT)) { //Deploy
         current_state = DEPLOY;
         Print_flag = false;
         break;
@@ -170,23 +225,19 @@ void StateMachine::SM() {
       Print_flag = false;
       break;
     case TRACKING_STATUS:
-      OF_Status = digitalRead(OF_Switch);
-      Automatic_Status = !digitalRead(Manual_Switch);
+      OF_Status = digitalRead(OF_Switch); //Check Deploy/Retract Switch
+      Automatic_Status = !digitalRead(Manual_Switch); //Check Manual/Auto Switch
       if (!Print_flag) {
         Serial.print("TRACKING STATUS\n");
         Print_flag = true;
       }
-      Serial.print("OF_Status: ");
-      Serial.println(OF_Status);
-      Serial.print("Automatic_Status: ");
-      Serial.println(Automatic_Status);
-      if (OF_Status && Automatic_Status) {
-        if(safety_status == SUNNY) {
+      if (OF_Status && Automatic_Status) { //If array is deployed and in Auto mode do the appropriate action
+        if (safety_status == SUNNY) {
           Track_flag = true;
           current_state = CHECK_POS;
           Print_flag = false;
         }
-        else if(safety_status == OVERCAST) {
+        else if (safety_status == OVERCAST) {
           current_state = FLAT;
           Print_flag = false;
         }
@@ -195,8 +246,7 @@ void StateMachine::SM() {
           Print_flag = false;
         }
       }
-      else if (!OF_Status && Automatic_Status && Track_flag == true) {
-        //Return_Flat(); not necessary
+      else if (!OF_Status && Automatic_Status && Track_flag == true) { 
         current_state = FLAT;
         Print_flag = false;
       }
@@ -221,10 +271,15 @@ void StateMachine::SM() {
         Print_flag = true;
       }
 
+      //Not all sensors read equal values so a fudge factor is multiplied to account for this
       lt = analogRead(ldrlt); // top left
+      lt = lt * lt_fudge; 
       rt = analogRead(ldrrt); // top right
+      rt = rt * rt_fudge;
       ld = analogRead(ldrld); // down left
+      ld = ld * ld_fudge;
       rd = analogRead(ldrrd); // down rigt
+      rd = rd * rd_fudge;
 
       avt = (lt + rt) / 2; // average value top
       avd = (ld + rd) / 2; // average value down
@@ -234,14 +289,14 @@ void StateMachine::SM() {
       dvert = avt - avd; // check the diffirence of up and down
       dhoriz = avl - avr;// check the diffirence og left and right
 
-      if ((-1 * tol > dvert || dvert > tol)) { // check if the diffirence is in the tolerance
+      if ((-1 * tol > dvert || dvert > tol)) { // check if the vertical difference is within the tolerance
         current_state = ADJ_POS;
         vertical_correct = false;
         system_correct = false;
         Print_flag = false;
       }
 
-      else if (-1 * tol > dhoriz || dhoriz > tol) { // check if the diffirence is in the tolerance
+      else if (-1 * tol > dhoriz || dhoriz > tol) { // check if the difference is within the tolerance
         current_state = ADJ_POS;
         horizon_correct = false;
         system_correct = false;
@@ -258,8 +313,8 @@ void StateMachine::SM() {
         Print_flag = true;
       }
       while (!system_correct) {
-        OF_Status = digitalRead(OF_Switch);
-        Manual_Status = digitalRead(Manual_Switch);
+        OF_Status = digitalRead(OF_Switch); //Check Deploy
+        Manual_Status = digitalRead(Manual_Switch); //Check Manual 
         if (OF_Status == LOW) {
           current_state = DEPLOY;
           Print_flag = false;
@@ -275,10 +330,14 @@ void StateMachine::SM() {
           break;
         }
         lt = analogRead(ldrlt); // top left
+        lt = lt * lt_fudge;
         rt = analogRead(ldrrt); // top right
+        rt = rt * rt_fudge;
         ld = analogRead(ldrld); // down left
+        ld = ld * ld_fudge;
         rd = analogRead(ldrrd); // down rigt
-        //
+        rd = rd * rd_fudge;
+
         //        Serial.print("\n\n\n\n\nTop Left: ");
         //        Serial.println(lt);
         //        Serial.print("Bottom Left: ");
@@ -294,25 +353,28 @@ void StateMachine::SM() {
         avl = (lt + ld) / 2; // average value left
         avr = (rt + rd) / 2; // average value right
 
-        Serial.print("\n\n\n\n\nAverage Top: ");
-        Serial.println(avt);
-        Serial.print("Average Bottom: ");
-        Serial.println(avd);
-        Serial.print("Average Left: ");
-        Serial.println(avl);
-        Serial.print("Average Right: ");
-        Serial.println(avr);
+        //        Serial.print("\n\n\n\n\nAverage Top: ");
+        //        Serial.println(avt);
+        //        Serial.print("Average Bottom: ");
+        //        Serial.println(avd);
+        //        Serial.print("Average Left: ");
+        //        Serial.println(avl);
+        //        Serial.print("Average Right: ");
+        //        Serial.println(avr);
 
         dvert = avt - avd; // check the diffirence of up and down
         dhoriz = avl - avr;// check the diffirence og left and right
 
         if ((-1 * tol > dvert || dvert > tol)) { // check if the diffirence is smaller than the tolerance
-          Serial.println("Elevation Incorrect");
+          Serial.println("\n\n\nElevation Incorrect");
           vertical_correct = false;
           system_correct = false;
         }
         else {
           Serial.println("Elevation Correct");
+          if(Adjust_turn == ELEVATION){
+            Adjust_turn = AZIMUTH;
+          }
           motors_sm.Elevation_Motor_Off();
           vertical_correct = true;
         }
@@ -324,6 +386,9 @@ void StateMachine::SM() {
         }
         else {
           Serial.println("Azimuth Correct");
+          if(Adjust_turn == AZIMUTH){
+            Adjust_turn = ELEVATION;
+          }
           motors_sm.Azimuth_Motor_Off();
           horizon_correct = true;
         }
@@ -336,8 +401,10 @@ void StateMachine::SM() {
           CW_ON = false;
           CCW_ON = false;
         }
-        if (!horizon_correct) {
-          if (avl > avr)
+        if (!horizon_correct && (Adjust_turn == AZIMUTH)) {
+          Serial.println("TURNING ELEVATION MOTOR OFF(3)");
+          motors_sm.Elevation_Motor_Off(); //Make sure elevation motor is off
+          if (avl > avr) //If the left is greater than the right then move CCW
           {
             if (CCW_ON) {
               motors_sm.Azimuth_Motor_Off();
@@ -350,16 +417,21 @@ void StateMachine::SM() {
               closer_to_CW = true;
             }
             if (digitalRead(LimitSwitch_Azimuth_CW)) { //if you hit the limit then rotate past center and keep tracking
-              Serial.println("Azimuth Motor Off (9)");
+              Serial.println("CW Limit Switch Hit... Rotate past center and keep tracking (Make sure interrupt is long enough)");
+              Serial.println("Azimuth Motor Off (9) THIS ONE");
               motors_sm.Azimuth_Motor_Off();//turn off motor
               CW_ON = false;
               delay(1000);//small delay to make changing rotation easier on the motor
               while (digitalRead(LimitSwitch_Azimuth_Center) == LOW) { //Move past center then keep tracking
-                motors_sm.Azimuth_Motor_CCW();
-                CCW_ON = true;
+                if (CCW_ON == false) {
+                  motors_sm.Azimuth_Motor_CCW();
+                  CCW_ON = true;
+                }
                 if (digitalRead(LimitSwitch_Azimuth_CCW)) {
                   Serial.println("Azimuth Motor Off (10)");
+                  Serial.println("Error: Make sure center limit switch is working");
                   motors_sm.Azimuth_Motor_Off();//Went too far, something is wrong
+                  closer_to_CW = false;
                   CCW_ON = false;
                 }
               }
@@ -384,6 +456,7 @@ void StateMachine::SM() {
               closer_to_CW = false;
             }
             if (digitalRead(LimitSwitch_Azimuth_CCW)) {
+              Serial.println("CCW Limit Switch Triggered... rotate past center and keep tracking");
               if (CCW_ON) {
                 Serial.println("Azimuth Motor Off (12)");
                 motors_sm.Azimuth_Motor_Off();//turn off motor
@@ -394,7 +467,9 @@ void StateMachine::SM() {
                 motors_sm.Azimuth_Motor_CW();
                 CW_ON = true;
                 if (digitalRead(LimitSwitch_Azimuth_CW)) {
+                  Serial.println("Error: Check center limit switch and make sure it is working");
                   Serial.println("Azimuth Motor Off (13)");
+                  closer_to_CW = true;
                   motors_sm.Azimuth_Motor_Off();//Went too far, something is wrong
                   CW_ON = false;
                 }
@@ -409,6 +484,7 @@ void StateMachine::SM() {
           else
           {
             Serial.println("Azimuth Position Correct!!");
+            Adjust_turn = ELEVATION;
             motors_sm.Azimuth_Motor_Off();
             CW_ON = false;
             CCW_ON = false;
@@ -416,18 +492,22 @@ void StateMachine::SM() {
           }
         }
 
-        if (!vertical_correct && horizon_correct) {
+        if (!vertical_correct && (Adjust_turn == ELEVATION)) {
+          motors_sm.Azimuth_Motor_Off(); //MAKE SURE AZIMUTH MOTOR IS OFF
+          CW_ON = false;
           Serial.println("Adjusting the elevation");
           if (avt > avd) {
             if (digitalRead(LimitSwitch_Elevation_Lower)) {
               motors_sm.Elevation_Motor_Off();
+              Serial.println("LOWER LIMIT SWITCH HIT. MOTOR SHOULD BE OFF");
               if (-1 * tol < dhoriz && dhoriz < tol) { //if within tolerance rotate 180 and keep tracking.
+                Serial.println("TOP IS GREATER BUT THE RIGHT AND LEFT ARE NOT ALLIGNED, ROTATE 180 and KEEP TRACKING");
                 if (closer_to_CW) {
                   motors_sm.Azimuth_Motor_CCW();
                   Serial.print("made it here in if");
                   CCW_ON = true;
                   cntr = 0;
-                  while (cntr <= TICK_COUNT_180) { // delay for enought time to rotate 180 degrees.
+                  while (cntr <= TICK_COUNT_180) { // delay for enough time to rotate 180 degrees.
                     OF_Status = digitalRead(OF_Switch);//check to see if any switches change position.
                     Manual_Status = digitalRead(Manual_Switch);//check to see if any switches change position.
                     if (OF_Status == LOW) {
@@ -487,24 +567,42 @@ void StateMachine::SM() {
                     }
                     cntr++;
                   }
-                  Serial.println("Azimuth Motor Off (17)");
-                  motors_sm.Azimuth_Motor_Off();
-                  CCW_ON = false;
                 }
               }
+              Serial.println("Azimuth Motor Off (17)"); ///NOT SURE ABOUT THIS
+              motors_sm.Azimuth_Motor_Off();
+              CCW_ON = false;
             }
-            motors_sm.Elevation_Motor_Down();
+            else if (-1 * tol < dvert && dvert < tol) {
+              Serial.println("TURNING ELEVATION MOTOR OFF(3)");
+              Adjust_turn = AZIMUTH;
+              vertical_correct = true;
+              motors_sm.Elevation_Motor_Off();
+            }
+            else {
+              Serial.println("MOVING ELEVATION MOTOR DOWN");
+              motors_sm.Elevation_Motor_Down();
+            }
           }
           else if (avt < avd)
           {
             if (digitalRead(LimitSwitch_Elevation_Upper)) {
+              Serial.println("UPPER LIMIT SWITCH TRIGGERED... TURN MOTOR OFF");
               motors_sm.Elevation_Motor_Off(); //if right is equal to left but top is greater than bottom rotate 180 and keep tracking.
             }
+            else if (-1 * tol < dvert && dvert < tol) {
+              Serial.println("TURNING ELEVATION MOTOR OFF(2)");
+              Adjust_turn = AZIMUTH;
+              vertical_correct = true;
+              motors_sm.Elevation_Motor_Off();
+            }
             else {
+              Serial.println("UPPER LIMIT NOT MET");
               motors_sm.Elevation_Motor_Up();
             }
           }
-          else if (avt == avd) {
+          else {
+            Serial.println("TURNING ELEVATION MOTOR OFF(1)");
             motors_sm.Elevation_Motor_Off();
           }
         }
@@ -516,61 +614,13 @@ void StateMachine::SM() {
     case WAIT:
       OF_State = false;
       Manual_State = false;
-      /* Read the voltage of the solar panel
-          safety_state 0 - Sunny, track as normal
-          safety_state 1 - Overcast, Go Flat
-          safety_state 2 - Night, Close up
-      */
-      value = analogRead(voltageSensor);
-      vOUT = (value * 5.0) / 1024.0;
-      vIN = vOUT / (R2 / (R1 + R2));
-      Serial.print("vIN: ");
-      Serial.println(vIN);
-      /* Safety state:
-          This will read the voltage from the solar panel and determine which state will
-          be most effective for the environment.
-         ------------------------------------- sunny upper (100%)
-                         SUNNY
-         - - - - - - - - - - - - - - - - - - -  overcast upper
-         -------------------------------------- sunny lower
-                       OVERCAST
-         -------------------------------------- night upper
-         - - - - - - - - - - - - - - - - - - - overcast lower
-                         NIGHT
-         -------------------------------------- night lower (5%)
-      */
-      if (safety_state == SUNNY) {
-        if (vIN <= sunny_threashold_lower) {
-          safety_state = OVERCAST;
-        }
-        else {
-          safety_state = SUNNY;
-        }
-      }
-      else if (safety_state == OVERCAST) {
-        if (vIN >= overcast_threashold_upper) {
-          safety_state = SUNNY;
-        }
-        else if (vIN <= overcast_threashold_lower) {
-          safety_state = NIGHT;
-        }
-        else {
-          safety_state = OVERCAST;
-        }
-      }
-      else {
-        if (vIN >= night_threashold_lower) {
-          safety_state = OVERCAST;
-        }
-        else {
-          safety_state = NIGHT;
-        }
-      }
-
       if (digitalRead(Manual_Switch)) { //Check to see if user switched to Manual
         delay(20);
         Manual_State = digitalRead(Manual_Switch);
       }
+      wind_reading = analogRead(wind_sensor);
+      //      Serial.print("Wind Sensor Reading: ");
+      //      Serial.println(wind_reading);
       if (digitalRead(OF_Switch)) { //Check to see if user switched OF_State
         delay(20);
         OF_State = digitalRead(OF_Switch);
@@ -578,6 +628,13 @@ void StateMachine::SM() {
       if (!Print_flag) {
         Serial.print("WAIT\n");
         Print_flag = true;
+      }
+      if (wind_reading >= WIND_THREASHOLD) {       //If the wind passes a safe limit then go flat for one sleep cycle
+        Serial.println("Wind Too Fast... Returning to flat");
+        time_now += (TRACKING_DELAY);
+        current_state = FLAT;
+        Print_flag = false;
+        break;
       }
       if (millis() >= time_now + TRACKING_DELAY) {
         time_now += TRACKING_DELAY;
@@ -725,6 +782,9 @@ void StateMachine::SM() {
             Serial.println("Azimuth Motor CW");
             motors_sm.Azimuth_Motor_CW();
           }
+          if (digitalRead(LimitSwitch_Azimuth_Center)) {
+            closer_to_CW = true;
+          }
           CW_motor_flag = true;
         }
         Serial.println("Azimuth Motor Off(1)");
@@ -749,6 +809,9 @@ void StateMachine::SM() {
           if (!CCW_motor_flag) {
             Serial.println("Azimuth Motor CCW");
             motors_sm.Azimuth_Motor_CCW();
+          }
+          if (digitalRead(LimitSwitch_Azimuth_Center)) {
+            closer_to_CW = false;
           }
           CCW_motor_flag = true;
         }
@@ -818,6 +881,7 @@ void StateMachine::SM() {
 }
 
 void StateMachine::Return_Flat() {
+  Serial.println("\n\n\nReturn to flat");
   bool moving_CW;
   while (digitalRead(LimitSwitch_Azimuth_Center) == false) {
     if (digitalRead(Manual_Switch)) {
@@ -832,48 +896,50 @@ void StateMachine::Return_Flat() {
       Print_flag = false;
       break;
     }
-    if (closer_to_CW) {
+    while (digitalRead(LimitSwitch_Elevation_Lower) == false) {
+      motors_sm.Elevation_Motor_Down();
+      if (digitalRead(Manual_Switch)) {
+        motors_sm.Elevation_Motor_Off();
+        current_state = MANUAL;
+        Print_flag = false;
+        break;
+      }
+      if (digitalRead(OF_Switch)) {        
+        motors_sm.Elevation_Motor_Off();
+        current_state = DEPLOY;
+        Print_flag = false;
+        break;
+      }
+    }
+    motors_sm.Elevation_Motor_Off();
+    if (closer_to_CW && !digitalRead(LimitSwitch_Azimuth_CCW)) {
       motors_sm.Azimuth_Motor_CCW();
       moving_CW = false;
     }
-    else {
+    else if (!closer_to_CW && !digitalRead(LimitSwitch_Azimuth_CW)) {
       motors_sm.Azimuth_Motor_CW();
       moving_CW = true;
     }
     if (digitalRead(LimitSwitch_Azimuth_CCW) && !moving_CW) {
-      //you were going the wrong direction;
+      Serial.println("Going the wrong direction, switch directions");//you were going the wrong direction;
       Serial.println("Azimuth Motor Off(4)");
       motors_sm.Azimuth_Motor_Off();
+      closer_to_CW = false;
       delay(1000); //turn off motor for a sec to improve transition
       motors_sm.Azimuth_Motor_CW();
       moving_CW = true;
     }
     if (digitalRead(LimitSwitch_Azimuth_CW) && moving_CW) {
-      //you were going the wrong direction;
+      Serial.println("Going the wrong direction, switch directions");//you were going the wrong direction;
       Serial.println("Azimuth Motor Off (5)");
       motors_sm.Azimuth_Motor_Off();
+      closer_to_CW = true;
       delay(1000); //turn off to improve transition
-      motors_sm.Azimuth_Motor_CW();
+      motors_sm.Azimuth_Motor_CCW();
       moving_CW = false;
     }
     //ADD AN ERROR CHECK IN CASE IT CANT FIND THE CENTER.
   }
   Serial.println("Azimuth Motor Off(6)");
   motors_sm.Azimuth_Motor_Off();
-  while (digitalRead(LimitSwitch_Elevation_Lower) == false) {
-    motors_sm.Elevation_Motor_Down();
-    if (digitalRead(Manual_Switch)) {
-      motors_sm.Elevation_Motor_Off();
-      current_state = MANUAL;
-      Print_flag = false;
-      break;
-    }
-    if (digitalRead(OF_Switch)) {         ////////////////UNLESS IT IS DOWN FOR ENVIRONMENTAL REASONS (HEAVY RAIN)
-      motors_sm.Elevation_Motor_Off();
-      current_state = DEPLOY;
-      Print_flag = false;
-      break;
-    }
-  }
-  motors_sm.Elevation_Motor_Off();
 }
